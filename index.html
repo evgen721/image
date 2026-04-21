@@ -1091,60 +1091,95 @@
       }
     });
 
-    async function generateImage({ model, prompt, image, seed, enhance, modelInfo }) {
-      const params = new URLSearchParams({
-        model,
-        seed: seed.toString(),
-        width: '1024',
-        height: '1024'
-      });
-      if (enhance) params.append('enhance', 'true');
-      
-      let url, options;
-      
-      if (image && modelInfo.supportsImage) {
-        // POST /v1/images/edits
-        url = `${API_BASE}/v1/images/edits`;
-        const formData = new FormData();
-        formData.append('prompt', prompt);
-        formData.append('model', model);
-        formData.append('image', image);
-        formData.append('seed', seed.toString());
-        if (enhance) formData.append('enhance', 'true');
-        
-        options = {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${apiKey}` },
-          body: formData
-        };
-      } else {
-        // GET /image/{prompt}
-        const encodedPrompt = encodeURIComponent(prompt);
-        url = `${API_BASE}/image/${encodedPrompt}?${params.toString()}`;
-        options = {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${apiKey}` }
-        };
-      }
+	async function generateImage({ model, prompt, image, seed, enhance, modelInfo }) {
+	  try {
+		let url, options;
+		
+		if (image && modelInfo.supportsImage) {
+		  // POST /v1/images/edits для загрузки изображения
+		  url = `${API_BASE}/v1/images/edits`;
+		  const formData = new FormData();
+		  formData.append('prompt', prompt);
+		  formData.append('model', model);
+		  formData.append('image', image);
+		  formData.append('seed', seed.toString());
+		  if (enhance) formData.append('enhance', 'true');
+		  
+		  options = {
+			method: 'POST',
+			headers: { 'Authorization': `Bearer ${apiKey}` },
+			body: formData
+		  };
+		} else {
+		  // GET /image/{prompt} для простых запросов
+		  const params = new URLSearchParams({
+			model,
+			seed: seed.toString(),
+			width: '1024',
+			height: '1024'
+		  });
+		  if (enhance) params.append('enhance', 'true');
+		  
+		  const encodedPrompt = encodeURIComponent(prompt);
+		  url = `${API_BASE}/image/${encodedPrompt}?${params.toString()}`;
+		  options = {
+			method: 'GET',
+			headers: { 'Authorization': `Bearer ${apiKey}` }
+		  };
+		}
 
-      try {
-        const res = await fetch(url, options);
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error?.message || `HTTP ${res.status}`);
-        }
-        const blob = await res.blob();
-        const imgUrl = URL.createObjectURL(blob);
-        return {
-          url: imgUrl,
-          model: modelInfo.name,
-          isPaid: modelInfo.paid_only
-        };
-      } catch (e) {
-        console.warn(`Generation failed for ${model}:`, e);
-        return null;
-      }
-    }
+		const res = await fetch(url, options);
+		if (!res.ok) {
+		  const err = await res.json().catch(() => ({}));
+		  throw new Error(err.error?.message || `HTTP ${res.status}`);
+		}
+		
+		// Проверяем тип ответа
+		const contentType = res.headers.get('content-type');
+		let imgUrl;
+		
+		if (contentType && contentType.includes('application/json')) {
+		  // Ответ в формате JSON с base64
+		  const data = await res.json();
+		  if (data.data && data.data[0] && data.data[0].b64_json) {
+			// Создаем URL из base64 строки
+			const base64Data = data.data[0].b64_json;
+			const blob = base64ToBlob(base64Data, 'image/png');
+			imgUrl = URL.createObjectURL(blob);
+		  } else {
+			throw new Error('Invalid response format');
+		  }
+		} else {
+		  // Ответ в формате изображения (blob)
+		  const blob = await res.blob();
+		  imgUrl = URL.createObjectURL(blob);
+		}
+		
+		return {
+		  url: imgUrl,
+		  model: modelInfo.name,
+		  isPaid: modelInfo.paid_only
+		};
+	  } catch (e) {
+		console.warn(`Generation failed for ${model}:`, e);
+		return null;
+	  }
+	}
+
+	// Функция для преобразования base64 в Blob
+	function base64ToBlob(base64, contentType = 'image/png') {
+	  // Удаляем возможный префикс data:image/png;base64,
+	  const base64Clean = base64.replace(/^data:image\/\w+;base64,/, '');
+	  const byteCharacters = atob(base64Clean);
+	  const byteNumbers = new Array(byteCharacters.length);
+	  
+	  for (let i = 0; i < byteCharacters.length; i++) {
+		byteNumbers[i] = byteCharacters.charCodeAt(i);
+	  }
+	  
+	  const byteArray = new Uint8Array(byteNumbers);
+	  return new Blob([byteArray], { type: contentType });
+	}
 
     function addResultCard({ url, model, isPaid }) {
       const card = document.createElement('div');
