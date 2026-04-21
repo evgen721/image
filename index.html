@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pollinations.ai Image Generator</title>
+  <style>
+    :root {
+      --bg-primary: #121212;
+      --bg-secondary: #1e1e1e;
+      --bg-tertiary: #2a2a2a;
+      --text-primary: #f5f5f5;
+      --text-secondary: #b0b0b0;
+      --accent: #7c4dff;
+      --accent-hover: #651fff;
+      --success: #4caf50;
+      --error: #f44336;
+      --warning: #ff9800;
+      --border: #333;
+      --input-bg: #252525;
+      --input-border: #444;
+      --shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.5;
+      padding: 0;
+      margin: 0;
+      width: 100vw;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    /* === AUTH SECTION === */
+    .auth-section {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .auth-section h2 {
+      font-size: 1.1rem;
+      margin-right: auto;
+      color: var(--accent);
+    }
+
+    .auth-input-group {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .auth-input-group input {
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: var(--text-primary);
+      min-width: 280px;
+      font-size: 0.9rem;
+    }
+
+    .auth-input-group input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover { background: var(--accent-hover); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-secondary {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { background: #3a3a3a; }
+    .btn-danger { background: var(--error); }
+    .btn-danger:hover { background: #d32f2f; }
+    .btn-success { background: var(--success); }
+    .btn-success:hover { background: #388e3c; }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-left: auto;
+      font-size: 0.9rem;
+    }
+
+    .user-info .balance {
+      background: var(--bg-tertiary);
+      padding: 4px 12px;
+      border-radius: 20px;
+      color: var(--warning);
+      font-weight: 500;
+    }
+
+    .user-info .email {
+      color: var(--text-secondary);
+    }
+
+    /* === PROMPT SECTION === */
+    .prompt-section {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+    }
+
+    .prompt-section h3 {
+      margin-bottom: 12px;
+      color: var(--accent);
+      font-size: 1.1rem;
+    }
+
+    .prompt-wrapper {
+      position: relative;
+      margin-bottom: 10px;
+    }
+
+    #prompt {
+      width: 100%;
+      min-height: 100px;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 8px;
+      padding: 12px;
+      color: var(--text-primary);
+      font-size: 1rem;
+      resize: vertical;
+    }
+
+    #prompt:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .translation {
+      background: var(--bg-tertiary);
+      border-left: 3px solid var(--accent);
+      padding: 8px 12px;
+      margin-top: 8px;
+      border-radius: 0 6px 6px 0;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      min-height: 24px;
+    }
+
+    .translation.empty { display: none; }
+
+    .image-drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+      margin: 12px 0;
+      background: var(--input-bg);
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    .image-drop-zone:hover,
+    .image-drop-zone.dragover {
+      border-color: var(--accent);
+      background: #2a2a4a;
+    }
+
+    .image-drop-zone input[type="file"] { display: none; }
+
+    .image-preview {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px;
+      padding: 8px;
+      background: var(--bg-tertiary);
+      border-radius: 6px;
+    }
+
+    .image-preview img {
+      width: 60px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    .image-preview .remove-img {
+      background: var(--error);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+
+    /* === MODEL SELECTION === */
+    .models-section {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+    }
+
+    .models-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .models-header h3 {
+      color: var(--accent);
+      font-size: 1.1rem;
+      margin: 0;
+    }
+
+    .model-count {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-left: auto;
+    }
+
+    .model-count span {
+      color: var(--warning);
+      font-weight: 600;
+    }
+
+    .models-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 10px;
+      max-height: 300px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .models-grid::-webkit-scrollbar { width: 6px; }
+    .models-grid::-webkit-scrollbar-track { background: var(--bg-tertiary); border-radius: 3px; }
+    .models-grid::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
+
+    .model-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    .model-item:hover { border-color: var(--accent); }
+    .model-item.disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .model-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: var(--accent);
+    }
+
+    .model-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .model-name {
+      font-weight: 500;
+      font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .model-name .star {
+      color: var(--warning);
+      font-size: 0.9rem;
+    }
+
+    .model-name .img-icon {
+      color: var(--accent);
+      font-size: 0.9rem;
+    }
+
+    .model-price {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .model-price.paid { color: var(--warning); }
+
+    /* === SETTINGS ROW === */
+    .settings-row {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      margin: 16px 0;
+      flex-wrap: wrap;
+    }
+
+    .setting-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .setting-group label {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .setting-group select {
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      color: var(--text-primary);
+      font-size: 0.9rem;
+      min-width: 70px;
+    }
+
+    .setting-group select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    /* === GENERATE BUTTON === */
+    .generate-section {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 24px 0;
+    }
+
+    #generateBtn {
+      padding: 12px 32px;
+      font-size: 1.1rem;
+      font-weight: 500;
+    }
+
+    .loading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .loading .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    .loading.active .spinner { display: inline-block; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* === RESULTS SECTION === */
+    .results-section {
+      margin-top: 20px;
+    }
+
+    .results-section h3 {
+      margin-bottom: 16px;
+      color: var(--accent);
+      font-size: 1.1rem;
+    }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 1200px) {
+      .results-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 768px) {
+      .results-grid { grid-template-columns: 1fr; }
+    }
+
+    .result-card {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .result-card img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      display: block;
+      background: var(--bg-tertiary);
+    }
+
+    .result-info {
+      padding: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .result-model {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .result-model .star { color: var(--warning); font-size: 0.8rem; }
+
+    .result-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .result-actions .btn {
+      flex: 1;
+      padding: 6px;
+      font-size: 0.85rem;
+    }
+
+    /* === UTILS === */
+    .hidden { display: none !important; }
+    .text-center { text-align: center; }
+    .mt-2 { margin-top: 12px; }
+    .error-msg {
+      color: var(--error);
+      font-size: 0.9rem;
+      margin-top: 8px;
+      padding: 8px;
+      background: rgba(244, 67, 54, 0.1);
+      border-radius: 6px;
+      border-left: 3px solid var(--error);
+    }
+    .success-msg {
+      color: var(--success);
+      font-size: 0.9rem;
+      margin-top: 8px;
+    }
+
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      padding: 12px 20px;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      z-index: 1000;
+      animation: slideIn 0.3s ease;
+      max-width: 320px;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(120%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    .toast.error { border-left-color: var(--error); }
+    .toast.success { border-left-color: var(--success); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    
+    <!-- === AUTH SECTION === -->
+    <section class="auth-section">
+      <h2>🔐 Аутентификация</h2>
+      <div class="auth-input-group">
+        <input type="password" id="apiKeyInput" placeholder="Вставьте API ключ (sk_ или pk_)" />
+        <button class="btn" id="saveKeyBtn">💾 Сохранить</button>
+        <button class="btn btn-secondary" id="loadKeyBtn">🔄 Загрузить</button>
+      </div>
+      <div class="user-info hidden" id="userInfo">
+        <span class="email" id="userEmail">user@example.com</span>
+        <span class="balance" id="userBalance">0 ₽</span>
+        <button class="btn btn-danger btn-sm" id="logoutBtn">🚪 Выйти</button>
+      </div>
+    </section>
+
+    <!-- === PROMPT SECTION === -->
+    <section class="prompt-section">
+      <h3>✏️ Промпт</h3>
+      <div class="prompt-wrapper">
+        <textarea id="prompt" placeholder="Введите описание изображения на русском..."></textarea>
+      </div>
+      <div class="translation empty" id="translation">
+        <strong>EN:</strong> <span id="translatedText"></span>
+      </div>
+
+      <!-- Image Upload -->
+      <div class="image-drop-zone" id="dropZone">
+        <span>📎 Перетащите изображение сюда, выберите файл или вставьте из буфера (Ctrl+V)</span>
+        <input type="file" id="fileInput" accept="image/*" />
+      </div>
+      <div class="image-preview hidden" id="imagePreview">
+        <img id="previewImg" src="" alt="Preview" />
+        <div>
+          <strong id="fileName">image.jpg</strong><br/>
+          <span id="fileSize" style="color:var(--text-secondary);font-size:0.85rem"></span>
+        </div>
+        <button class="remove-img" id="removeImg">✕ Удалить</button>
+      </div>
+    </section>
+
+    <!-- === MODEL SELECTION === -->
+    <section class="models-section">
+      <div class="models-header">
+        <h3>🤖 Выбор моделей</h3>
+        <div class="model-count">Выбрано: <span id="selectedCount">0</span>/5</div>
+        <button class="btn btn-secondary btn-sm" id="refreshModels">🔄 Обновить</button>
+      </div>
+      <div class="models-grid" id="modelsGrid">
+        <div class="text-center" style="grid-column:1/-1;color:var(--text-secondary);padding:20px;">
+          Загрузка моделей...
+        </div>
+      </div>
+    </section>
+
+    <!-- === SETTINGS === -->
+    <section class="prompt-section">
+      <h3>⚙️ Настройки</h3>
+      <div class="settings-row">
+        <div class="setting-group">
+          <label for="imageCount">Количество на модель:</label>
+          <select id="imageCount">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+          </select>
+        </div>
+        <div class="setting-group">
+          <label>
+            <input type="checkbox" id="enhancePrompt" checked /> 
+            Улучшить промпт (enhance)
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- === GENERATE === -->
+    <div class="generate-section">
+      <button class="btn btn-success" id="generateBtn" disabled>
+        🎨 Сгенерировать изображения
+      </button>
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <span id="loadingText">Генерация...</span>
+      </div>
+    </div>
+
+    <!-- === RESULTS === -->
+    <section class="results-section hidden" id="resultsSection">
+      <h3>🖼️ Результаты</h3>
+      <div class="results-grid" id="resultsGrid"></div>
+    </section>
+
+  </div>
+
+  <!-- Toast container -->
+  <div id="toastContainer"></div>
+
+  <script>
+    // === CONFIG ===
+    const API_BASE = 'https://gen.pollinations.ai';
+    const ACCOUNT_BASE = 'https://enter.pollinations.ai/api';
+    const STORAGE_KEY = 'pollinations_api_key';
+    
+    // === PRICE CONVERSION ===
+    const RUB_PER_POLLEN = 75;
+    // Nanobanana models special multiplier
+    const NANOBANANA_MULTIPLIER = 1300;
+    const NANOBANANA_MODELS = ['nanobanana', 'nanobanana-2', 'nanobanana-pro'];
+    
+    // === STATE ===
+    let apiKey = localStorage.getItem(STORAGE_KEY) || '';
+    let models = [];
+    let selectedModels = [];
+    let attachedImage = null;
+    let isGenerating = false;
+
+    // === DOM ELEMENTS ===
+    const els = {
+      apiKeyInput: document.getElementById('apiKeyInput'),
+      saveKeyBtn: document.getElementById('saveKeyBtn'),
+      loadKeyBtn: document.getElementById('loadKeyBtn'),
+      logoutBtn: document.getElementById('logoutBtn'),
+      userInfo: document.getElementById('userInfo'),
+      userEmail: document.getElementById('userEmail'),
+      userBalance: document.getElementById('userBalance'),
+      prompt: document.getElementById('prompt'),
+      translation: document.getElementById('translation'),
+      translatedText: document.getElementById('translatedText'),
+      dropZone: document.getElementById('dropZone'),
+      fileInput: document.getElementById('fileInput'),
+      imagePreview: document.getElementById('imagePreview'),
+      previewImg: document.getElementById('previewImg'),
+      fileName: document.getElementById('fileName'),
+      fileSize: document.getElementById('fileSize'),
+      removeImg: document.getElementById('removeImg'),
+      modelsGrid: document.getElementById('modelsGrid'),
+      selectedCount: document.getElementById('selectedCount'),
+      refreshModels: document.getElementById('refreshModels'),
+      imageCount: document.getElementById('imageCount'),
+      enhancePrompt: document.getElementById('enhancePrompt'),
+      generateBtn: document.getElementById('generateBtn'),
+      loading: document.getElementById('loading'),
+      loadingText: document.getElementById('loadingText'),
+      resultsSection: document.getElementById('resultsSection'),
+      resultsGrid: document.getElementById('resultsGrid'),
+      toastContainer: document.getElementById('toastContainer')
+    };
+
+    // === UTILS ===
+    function convertPollenToRub(pollen, modelId) {
+      const isNanobanana = NANOBANANA_MODELS.some(m => modelId?.toLowerCase().includes(m.toLowerCase()));
+      if (isNanobanana) {
+        return pollen * NANOBANANA_MULTIPLIER;
+      }
+      return pollen * RUB_PER_POLLEN;
+    }
+
+    function formatPrice(pollen, modelId) {
+      if (!pollen && pollen !== 0) return '';
+      const rub = convertPollenToRub(pollen, modelId);
+      return `${rub.toFixed(2)} ₽`;
+    }
+
+    // === INIT ===
+    document.addEventListener('DOMContentLoaded', () => {
+      if (apiKey) {
+        els.apiKeyInput.value = apiKey;
+        updateAuthUI(true);
+        loadUserProfile();
+      }
+      loadModels();
+      setupEventListeners();
+      setupTranslation();
+      // Hide loading indicator initially
+      els.loading.classList.remove('active');
+    });
+
+    // === AUTH ===
+    function updateAuthUI(isAuthenticated) {
+      if (isAuthenticated) {
+        els.userInfo.classList.remove('hidden');
+        els.generateBtn.disabled = false;
+      } else {
+        els.userInfo.classList.add('hidden');
+        els.generateBtn.disabled = true;
+      }
+    }
+
+    async function loadUserProfile() {
+      try {
+        const [profile, balance] = await Promise.all([
+          fetch(`${ACCOUNT_BASE}/account/profile`, {
+            headers: { 'Authorization': `Bearer ${apiKey}` }
+          }).then(r => r.ok ? r.json() : null),
+          fetch(`${ACCOUNT_BASE}/account/balance`, {
+            headers: { 'Authorization': `Bearer ${apiKey}` }
+          }).then(r => r.ok ? r.json() : null)
+        ]);
+        
+        if (profile?.email) els.userEmail.textContent = profile.email;
+        if (balance?.balance !== undefined) {
+          const rubBalance = convertPollenToRub(balance.balance);
+          els.userBalance.textContent = `${rubBalance.toFixed(2)} ₽`;
+        }
+      } catch (e) {
+        console.warn('Failed to load profile:', e);
+        showToast('Не удалось загрузить данные аккаунта', 'error');
+      }
+    }
+
+    els.saveKeyBtn.addEventListener('click', () => {
+      const key = els.apiKeyInput.value.trim();
+      if (!key) {
+        showToast('Введите API ключ', 'error');
+        return;
+      }
+      if (!key.startsWith('sk_') && !key.startsWith('pk_')) {
+        showToast('Неверный формат ключа (должен начинаться с sk_ или pk_)', 'error');
+        return;
+      }
+      apiKey = key;
+      localStorage.setItem(STORAGE_KEY, key);
+      updateAuthUI(true);
+      loadUserProfile();
+      showToast('Ключ сохранён ✓', 'success');
+    });
+
+    els.loadKeyBtn.addEventListener('click', () => {
+      const key = localStorage.getItem(STORAGE_KEY);
+      if (key) {
+        els.apiKeyInput.value = key;
+        apiKey = key;
+        updateAuthUI(true);
+        loadUserProfile();
+        showToast('Ключ загружен ✓', 'success');
+      } else {
+        showToast('Сохранённый ключ не найден', 'error');
+      }
+    });
+
+    els.logoutBtn.addEventListener('click', () => {
+      localStorage.removeItem(STORAGE_KEY);
+      apiKey = '';
+      els.apiKeyInput.value = '';
+      updateAuthUI(false);
+      showToast('Вы вышли из аккаунта', 'success');
+    });
+
+    // === MODELS ===
+    async function loadModels() {
+      els.modelsGrid.innerHTML = '<div class="text-center" style="grid-column:1/-1;color:var(--text-secondary);padding:20px;">Загрузка моделей...</div>';
+      try {
+        const res = await fetch(`${API_BASE}/image/models`);
+        if (!res.ok) throw new Error('Failed to fetch models');
+        const allModels = await res.json();
+        
+        // Filter: only image output modality
+        models = allModels.filter(m => 
+          m.output_modalities?.includes('image')
+        ).map(m => ({
+          id: m.name || m.id,
+          name: m.name || m.id,
+          paid_only: m.paid_only || false,
+          price: m.price?.completionImageTokens || null,
+          supportsImage: m.input_modalities?.includes('image') || false,
+          ...m
+        }));
+        
+        renderModels();
+      } catch (e) {
+        console.error('Error loading models:', e);
+        els.modelsGrid.innerHTML = `<div class="error-msg" style="grid-column:1/-1;">Ошибка загрузки моделей: ${e.message}</div>`;
+      }
+    }
+
+    function renderModels() {
+      if (models.length === 0) {
+        els.modelsGrid.innerHTML = '<div class="text-center" style="grid-column:1/-1;color:var(--text-secondary);padding:20px;">Нет доступных моделей</div>';
+        return;
+      }
+
+      els.modelsGrid.innerHTML = models.map(model => {
+        const isDisabled = !model.supportsImage && attachedImage;
+        const isSelected = selectedModels.includes(model.id);
+        const priceRub = model.price ? formatPrice(model.price, model.id) : '';
+        return `
+          <label class="model-item ${isDisabled ? 'disabled' : ''}" data-model="${model.id}">
+            <input type="checkbox" ${isSelected ? 'checked' : ''} ${isDisabled ? 'disabled' : ''} 
+                   data-model="${model.id}" ${isDisabled ? 'title="Модель не поддерживает загрузку изображений"' : ''}/>
+            <div class="model-info">
+              <div class="model-name">
+                ${model.name}
+                ${model.paid_only ? '<span class="star" title="Платная модель">★</span>' : ''}
+                ${model.supportsImage ? '<span class="img-icon" title="Поддерживает загрузку изображения">🖼️</span>' : ''}
+              </div>
+              ${priceRub ? `<div class="model-price ${model.paid_only ? 'paid' : ''}">💰 ${priceRub}</div>` : ''}
+            </div>
+          </label>
+        `;
+      }).join('');
+
+      // Attach checkbox listeners
+      els.modelsGrid.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', handleModelSelection);
+      });
+    }
+
+    function handleModelSelection(e) {
+      const modelId = e.target.dataset.model;
+      const isChecked = e.target.checked;
+      
+      if (isChecked) {
+        if (selectedModels.length >= 5) {
+          e.target.checked = false;
+          showToast('Можно выбрать максимум 5 моделей', 'error');
+          return;
+        }
+        if (!selectedModels.includes(modelId)) {
+          selectedModels.push(modelId);
+        }
+      } else {
+        selectedModels = selectedModels.filter(id => id !== modelId);
+      }
+      
+      els.selectedCount.textContent = selectedModels.length;
+      updateGenerateButton();
+    }
+
+    els.refreshModels.addEventListener('click', () => {
+      loadModels();
+      showToast('Список моделей обновлён', 'success');
+    });
+
+    // === PROMPT & TRANSLATION ===
+    function setupTranslation() {
+      let translateTimeout;
+      
+      els.prompt.addEventListener('input', () => {
+        clearTimeout(translateTimeout);
+        const text = els.prompt.value.trim();
+        
+        if (!text || !/[а-яА-ЯёЁ]/.test(text)) {
+          els.translation.classList.add('empty');
+          return;
+        }
+        
+        translateTimeout = setTimeout(async () => {
+          try {
+            const encoded = encodeURIComponent(text);
+            const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=ru&tl=en&dt=t&q=${encoded}`);
+            const data = await res.json();
+            const translated = data[0][0][0];
+            
+            els.translatedText.textContent = translated;
+            els.translation.classList.remove('empty');
+          } catch (e) {
+            console.warn('Translation error:', e);
+            els.translatedText.textContent = 'Переведите вручную на английский';
+            els.translation.classList.remove('empty');
+          }
+        }, 600);
+      });
+    }
+
+    // === IMAGE UPLOAD ===
+    function setupImageUpload() {
+      // Click to open file picker
+      els.dropZone.addEventListener('click', () => els.fileInput.click());
+      
+      // File select
+      els.fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) handleImageFile(file);
+      });
+
+      // Drag & drop
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+        els.dropZone.addEventListener(evt, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+      });
+      ['dragenter', 'dragover'].forEach(evt => {
+        els.dropZone.addEventListener(evt, () => els.dropZone.classList.add('dragover'));
+      });
+      ['dragleave', 'drop'].forEach(evt => {
+        els.dropZone.addEventListener(evt, () => els.dropZone.classList.remove('dragover'));
+      });
+      els.dropZone.addEventListener('drop', (e) => {
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) {
+          handleImageFile(file);
+        }
+      });
+
+      // Paste from clipboard
+      document.addEventListener('paste', (e) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        for (const item of items) {
+          if (item.type?.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) {
+              handleImageFile(file);
+              break;
+            }
+          }
+        }
+      });
+
+      // Remove image
+      els.removeImg.addEventListener('click', () => {
+        attachedImage = null;
+        els.imagePreview.classList.add('hidden');
+        els.fileInput.value = '';
+        renderModels(); // Re-render to enable/disable model checkboxes
+        updateGenerateButton();
+      });
+    }
+
+    async function handleImageFile(file) {
+      if (!file.type.startsWith('image/')) {
+        showToast('Выберите изображение', 'error');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        showToast('Файл слишком большой (макс. 10 МБ)', 'error');
+        return;
+      }
+
+      attachedImage = file;
+      els.fileName.textContent = file.name;
+      els.fileSize.textContent = formatFileSize(file.size);
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        els.previewImg.src = e.target.result;
+        els.imagePreview.classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+      
+      renderModels(); // Re-render to disable models that don't support images
+      updateGenerateButton();
+      showToast('Изображение добавлено ✓', 'success');
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+      return (bytes/(1024*1024)).toFixed(1) + ' MB';
+    }
+
+    setupImageUpload();
+
+    // === GENERATION ===
+    function updateGenerateButton() {
+      const hasPrompt = els.prompt.value.trim().length > 0;
+      const hasModels = selectedModels.length > 0;
+      const hasAuth = !!apiKey;
+      const imageCompatible = !attachedImage || selectedModels.some(id => {
+        const m = models.find(x => x.id === id);
+        return m?.supportsImage;
+      });
+      
+      els.generateBtn.disabled = !(hasPrompt && hasModels && hasAuth && imageCompatible);
+      
+      if (attachedImage && !imageCompatible) {
+        showToast('Выберите модель, поддерживающую загрузку изображений', 'error');
+      }
+    }
+
+    els.prompt.addEventListener('input', updateGenerateButton);
+
+    els.generateBtn.addEventListener('click', async () => {
+      if (isGenerating) return;
+      
+      const prompt = els.prompt.value.trim();
+      const translatedPrompt = els.translatedText.textContent || prompt;
+      const count = parseInt(els.imageCount.value);
+      const enhance = els.enhancePrompt.checked;
+      
+      if (!prompt) {
+        showToast('Введите промпт', 'error');
+        return;
+      }
+      if (selectedModels.length === 0) {
+        showToast('Выберите хотя бы одну модель', 'error');
+        return;
+      }
+      if (!apiKey) {
+        showToast('Требуется аутентификация', 'error');
+        return;
+      }
+
+      // Filter models: if image attached, only use models that support it
+      const usableModels = attachedImage 
+        ? selectedModels.filter(id => models.find(m => m.id === id)?.supportsImage)
+        : selectedModels;
+      
+      if (usableModels.length === 0) {
+        showToast('Нет моделей, поддерживающих загрузку изображений', 'error');
+        return;
+      }
+
+      isGenerating = true;
+      els.loading.classList.add('active');
+      els.generateBtn.disabled = true;
+      els.resultsGrid.innerHTML = '';
+      els.resultsSection.classList.remove('hidden');
+      
+      const tasks = [];
+      const seed = -1; // Force regeneration
+
+      for (const modelId of usableModels) {
+        const model = models.find(m => m.id === modelId);
+        if (!model) continue;
+        
+        for (let i = 0; i < count; i++) {
+          tasks.push(generateImage({
+            model: modelId,
+            prompt: translatedPrompt,
+            image: attachedImage,
+            seed: seed + Math.floor(Math.random() * 10000),
+            enhance,
+            modelInfo: model
+          }));
+        }
+      }
+
+      const results = await Promise.allSettled(tasks);
+      
+      results.forEach(result => {
+        if (result.status === 'fulfilled' && result.value) {
+          addResultCard(result.value);
+        }
+      });
+      
+      const successCount = results.filter(r => r.status === 'fulfilled' && r.value).length;
+      const failCount = results.length - successCount;
+      
+      els.loading.classList.remove('active');
+      isGenerating = false;
+      els.generateBtn.disabled = false;
+      
+      if (successCount > 0) {
+        showToast(`Готово: ${successCount} изображений${failCount ? `, ${failCount} ошибок` : ''}`, 'success');
+      } else {
+        showToast('Не удалось сгенерировать изображения', 'error');
+      }
+    });
+
+    async function generateImage({ model, prompt, image, seed, enhance, modelInfo }) {
+      const params = new URLSearchParams({
+        model,
+        seed: seed.toString(),
+        width: '1024',
+        height: '1024'
+      });
+      if (enhance) params.append('enhance', 'true');
+      
+      let url, options;
+      
+      if (image && modelInfo.supportsImage) {
+        // POST /v1/images/edits
+        url = `${API_BASE}/v1/images/edits`;
+        const formData = new FormData();
+        formData.append('prompt', prompt);
+        formData.append('model', model);
+        formData.append('image', image);
+        formData.append('seed', seed.toString());
+        if (enhance) formData.append('enhance', 'true');
+        
+        options = {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${apiKey}` },
+          body: formData
+        };
+      } else {
+        // GET /image/{prompt}
+        const encodedPrompt = encodeURIComponent(prompt);
+        url = `${API_BASE}/image/${encodedPrompt}?${params.toString()}`;
+        options = {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${apiKey}` }
+        };
+      }
+
+      try {
+        const res = await fetch(url, options);
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error?.message || `HTTP ${res.status}`);
+        }
+        const blob = await res.blob();
+        const imgUrl = URL.createObjectURL(blob);
+        return {
+          url: imgUrl,
+          blob: blob,
+          model: modelInfo.name,
+          isPaid: modelInfo.paid_only
+        };
+      } catch (e) {
+        console.warn(`Generation failed for ${model}:`, e);
+        return null;
+      }
+    }
+
+    function addResultCard({ url, blob, model, isPaid }) {
+      const card = document.createElement('div');
+      card.className = 'result-card';
+      card.innerHTML = `
+        <img src="${url}" alt="Generated" loading="lazy" />
+        <div class="result-info">
+          <div class="result-model">
+            ${model} ${isPaid ? '<span class="star">★</span>' : ''}
+          </div>
+          <div class="result-actions">
+            <button class="btn btn-secondary btn-sm" data-action="save">💾 Сохранить</button>
+            <button class="btn btn-secondary btn-sm" data-action="copy">📋 Копировать</button>
+          </div>
+        </div>
+      `;
+      
+      // Save button
+      card.querySelector('[data-action="save"]').addEventListener('click', () => {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pollinations-${model.replace(/\s+/g, '-')}-${Date.now()}.png`;
+        a.click();
+        showToast('Изображение сохранено', 'success');
+      });
+      
+      // Copy button - copies actual image to clipboard
+      card.querySelector('[data-action="copy"]').addEventListener('click', async () => {
+        try {
+          // Use the stored blob if available, otherwise fetch it
+          let imageBlob = blob;
+          if (!imageBlob) {
+            const response = await fetch(url);
+            imageBlob = await response.blob();
+          }
+          
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              [imageBlob.type]: imageBlob
+            })
+          ]);
+          showToast('Изображение скопировано в буфер', 'success');
+        } catch (e) {
+          console.warn('Clipboard write failed:', e);
+          // Fallback: copy URL
+          try {
+            await navigator.clipboard.writeText(url);
+            showToast('Скопирована ссылка на изображение (буфер не поддерживает картинки)', 'success');
+          } catch (e2) {
+            showToast('Не удалось скопировать', 'error');
+          }
+        }
+      });
+      
+      els.resultsGrid.appendChild(card);
+    }
+
+    // === TOAST ===
+    function showToast(message, type = 'info') {
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      els.toastContainer.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.style.animation = 'slideIn 0.3s ease reverse';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // === UTILS ===
+    function setupEventListeners() {
+      // Close translation when prompt is empty
+      els.prompt.addEventListener('input', () => {
+        if (!els.prompt.value.trim()) {
+          els.translation.classList.add('empty');
+        }
+        updateGenerateButton();
+      });
+    }
+  </script>
+</body>
+</html>
