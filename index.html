@@ -617,7 +617,7 @@
     // === PRICE CONVERSION ===
     const RUB_PER_POLLEN = 75;
     // Nanobanana models special multiplier
-    const NANOBANANA_MULTIPLIER = 1300;
+    const NANOBANANA_MULTIPLIER = 1150;
     const NANOBANANA_MODELS = ['nanobanana', 'nanobanana-2', 'nanobanana-pro'];
     
     // === STATE ===
@@ -660,19 +660,47 @@
     };
 
     // === UTILS ===
-    function convertPollenToRub(pollen, modelId) {
-      const isNanobanana = NANOBANANA_MODELS.some(m => modelId?.toLowerCase().includes(m.toLowerCase()));
-      if (isNanobanana) {
-        return pollen * NANOBANANA_MULTIPLIER;
-      }
-      return pollen * RUB_PER_POLLEN;
-    }
+	// === PRICE CONVERSION ===
 
-    function formatPrice(pollen, modelId) {
-      if (!pollen && pollen !== 0) return '';
-      const rub = convertPollenToRub(pollen, modelId);
-      return `${rub.toFixed(2)} ₽`;
-    }
+	function getModelPriceInPollen(model) {
+	  // Try to get price from pricing.completionImageTokens
+	  if (model.pricing && model.pricing.completionImageTokens) {
+		return parseFloat(model.pricing.completionImageTokens);
+	  }
+	  // Fallback: try price.completionImageTokens
+	  if (model.price && model.price.completionImageTokens) {
+		return parseFloat(model.price.completionImageTokens);
+	  }
+	  return null;
+	}
+
+	function isNanobananaModel(modelId) {
+	  if (!modelId) return false;
+	  const modelLower = modelId.toLowerCase();
+	  return NANOBANANA_MODELS.some(m => modelLower === m.toLowerCase() || modelLower.includes(m.toLowerCase()));
+	}
+
+	function convertPollenToRub(pollen, modelId) {
+	  if (!pollen && pollen !== 0) return 0;
+	  
+	  // For nanobanana models: apply multiplier to pollen FIRST, then convert to rub
+	  if (isNanobananaModel(modelId)) {
+		const adjustedPollen = pollen * NANOBANANA_MULTIPLIER;
+		console.log(`Nanobanana detected: ${modelId}, original pollen: ${pollen}, adjusted pollen: ${adjustedPollen}, rub: ${adjustedPollen * RUB_PER_POLLEN}`);
+		return adjustedPollen * RUB_PER_POLLEN;
+	  }
+	  
+	  // For regular models: just convert pollen to rub
+	  return pollen * RUB_PER_POLLEN;
+	}
+
+	function formatPrice(model) {
+	  const pollenPrice = getModelPriceInPollen(model);
+	  if (pollenPrice === null) return '';
+	  const modelId = model.id || model.name;
+	  const rubPrice = convertPollenToRub(pollenPrice, modelId);
+	  return `${rubPrice.toFixed(2)} ₽`;
+	}
 
     // === INIT ===
     document.addEventListener('DOMContentLoaded', () => {
@@ -774,7 +802,8 @@
           id: m.name || m.id,
           name: m.name || m.id,
           paid_only: m.paid_only || false,
-          price: m.price?.completionImageTokens || null,
+          pricing: m.pricing || null,
+          price: m.price || null,
           supportsImage: m.input_modalities?.includes('image') || false,
           ...m
         }));
@@ -795,7 +824,7 @@
       els.modelsGrid.innerHTML = models.map(model => {
         const isDisabled = !model.supportsImage && attachedImage;
         const isSelected = selectedModels.includes(model.id);
-        const priceRub = model.price ? formatPrice(model.price, model.id) : '';
+        const priceRub = formatPrice(model);
         return `
           <label class="model-item ${isDisabled ? 'disabled' : ''}" data-model="${model.id}">
             <input type="checkbox" ${isSelected ? 'checked' : ''} ${isDisabled ? 'disabled' : ''} 
@@ -1108,7 +1137,6 @@
         const imgUrl = URL.createObjectURL(blob);
         return {
           url: imgUrl,
-          blob: blob,
           model: modelInfo.name,
           isPaid: modelInfo.paid_only
         };
@@ -1118,7 +1146,7 @@
       }
     }
 
-    function addResultCard({ url, blob, model, isPaid }) {
+    function addResultCard({ url, model, isPaid }) {
       const card = document.createElement('div');
       card.className = 'result-card';
       card.innerHTML = `
@@ -1129,7 +1157,6 @@
           </div>
           <div class="result-actions">
             <button class="btn btn-secondary btn-sm" data-action="save">💾 Сохранить</button>
-            <button class="btn btn-secondary btn-sm" data-action="copy">📋 Копировать</button>
           </div>
         </div>
       `;
@@ -1141,34 +1168,6 @@
         a.download = `pollinations-${model.replace(/\s+/g, '-')}-${Date.now()}.png`;
         a.click();
         showToast('Изображение сохранено', 'success');
-      });
-      
-      // Copy button - copies actual image to clipboard
-      card.querySelector('[data-action="copy"]').addEventListener('click', async () => {
-        try {
-          // Use the stored blob if available, otherwise fetch it
-          let imageBlob = blob;
-          if (!imageBlob) {
-            const response = await fetch(url);
-            imageBlob = await response.blob();
-          }
-          
-          await navigator.clipboard.write([
-            new ClipboardItem({
-              [imageBlob.type]: imageBlob
-            })
-          ]);
-          showToast('Изображение скопировано в буфер', 'success');
-        } catch (e) {
-          console.warn('Clipboard write failed:', e);
-          // Fallback: copy URL
-          try {
-            await navigator.clipboard.writeText(url);
-            showToast('Скопирована ссылка на изображение (буфер не поддерживает картинки)', 'success');
-          } catch (e2) {
-            showToast('Не удалось скопировать', 'error');
-          }
-        }
       });
       
       els.resultsGrid.appendChild(card);
