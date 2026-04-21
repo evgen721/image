@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Pollinations.ai Image Generator</title>
+  <title>Pollinations.ai Image Generator — обновленный интерфейс</title>
   <style>
     :root {
       --bg-primary: #121212;
@@ -13,13 +13,16 @@
       --text-secondary: #b0b0b0;
       --accent: #7c4dff;
       --accent-hover: #651fff;
-      --success: #4caf50;
+      --success: #067d4c;
       --error: #f44336;
       --warning: #ff9800;
       --border: #333;
       --input-bg: #252525;
       --input-border: #444;
       --shadow: 0 4px 12px rgba(0,0,0,0.4);
+      /* новая подсветка для выбранной модели */
+      --model-selected-bg: rgba(124, 77, 255, 0.08);
+      --model-selected-border: #7c4dff;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -30,7 +33,6 @@
       line-height: 1.5;
       padding: 0;
       margin: 0;
-      width: 100vw;
       min-height: 100vh;
     }
 
@@ -44,7 +46,7 @@
     .auth-section {
       background: var(--bg-secondary);
       border-radius: 12px;
-      padding: 16px 20px;
+      padding: 16px 16px;
       margin-bottom: 20px;
       border: 1px solid var(--border);
       display: flex;
@@ -55,7 +57,7 @@
 
     .auth-section h2 {
       font-size: 1.1rem;
-      margin-right: auto;
+      margin-right: 20px;
       color: var(--accent);
     }
 
@@ -69,7 +71,7 @@
       background: var(--input-bg);
       border: 1px solid var(--input-border);
       border-radius: 6px;
-      padding: 8px 12px;
+      padding: 10px 12px;
       color: var(--text-primary);
       min-width: 280px;
       font-size: 0.9rem;
@@ -104,20 +106,20 @@
     .btn-danger { background: var(--error); }
     .btn-danger:hover { background: #d32f2f; }
     .btn-success { background: var(--success); }
-    .btn-success:hover { background: #388e3c; }
+    .btn-success:hover { background: #067d4ca8; }
 
     .user-info {
       display: flex;
       align-items: center;
       gap: 16px;
       margin-left: auto;
-      font-size: 0.9rem;
+      font-size: 1.1rem;
     }
 
     .user-info .balance {
       background: var(--bg-tertiary);
-      padding: 4px 12px;
-      border-radius: 20px;
+      padding: 6px 12px;
+      border-radius: 6px;
       color: var(--warning);
       font-weight: 500;
     }
@@ -130,7 +132,7 @@
     .prompt-section {
       background: var(--bg-secondary);
       border-radius: 12px;
-      padding: 20px;
+      padding: 16px;
       margin-bottom: 20px;
       border: 1px solid var(--border);
     }
@@ -181,7 +183,7 @@
       border-radius: 8px;
       padding: 16px;
       text-align: center;
-      margin: 12px 0;
+      margin: 12px 0 0;
       background: var(--input-bg);
       cursor: pointer;
       transition: border-color 0.2s;
@@ -227,7 +229,7 @@
     .models-section {
       background: var(--bg-secondary);
       border-radius: 12px;
-      padding: 20px;
+      padding: 16px;
       margin-bottom: 20px;
       border: 1px solid var(--border);
     }
@@ -271,24 +273,40 @@
     .models-grid::-webkit-scrollbar-track { background: var(--bg-tertiary); border-radius: 3px; }
     .models-grid::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
 
+    /* НОВЫЙ СТИЛЬ ДЛЯ ВЫДЕЛЕНИЯ ВЫБРАННОЙ МОДЕЛИ */
     .model-item {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 10px 12px;
+      padding: 8px 14px;
       background: var(--input-bg);
       border: 1px solid var(--input-border);
       border-radius: 8px;
       cursor: pointer;
-      transition: border-color 0.2s;
+      transition: all 0.2s ease;
     }
 
     .model-item:hover { border-color: var(--accent); }
-    .model-item.disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    /* Выделенная модель (выбрана) */
+    .model-item.selected {
+      background: var(--model-selected-bg);
+      border: 1px solid var(--model-selected-border);
+      box-shadow: 0 0 0 1px rgba(124, 77, 255, 0.2);
+    }
+    
+    .model-item.disabled { 
+      opacity: 0.5; 
+      cursor: not-allowed; 
+    }
+    .model-item.disabled.selected {
+      background: var(--input-bg);
+      border-color: var(--input-border);
+    }
 
     .model-item input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
+      width: 25px;
+      height: 25px;
       cursor: pointer;
       accent-color: var(--accent);
     }
@@ -320,31 +338,46 @@
     .model-price {
       font-size: 0.8rem;
       color: var(--text-secondary);
-      margin-top: 2px;
     }
 
     .model-price.paid { color: var(--warning); }
 
-    /* === SETTINGS ROW === */
-    .settings-row {
+    /* === НАСТРОЙКИ — новая компактная строка === */
+    .settings-compact {
       display: flex;
-      gap: 20px;
       align-items: center;
-      margin: 16px 0;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-top: 0;
+      width: 100%;
+    }
+    .settings-left {
+      display: flex;
+      align-items: baseline;
+      gap: 20px;
       flex-wrap: wrap;
     }
-
+    .settings-left h3 {
+      margin: 0;
+      font-size: 1.1rem;
+      color: var(--accent);
+    }
+    .settings-controls {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
     .setting-group {
       display: flex;
       align-items: center;
       gap: 8px;
     }
-
     .setting-group label {
       font-size: 0.9rem;
       color: var(--text-secondary);
     }
-
     .setting-group select {
       background: var(--input-bg);
       border: 1px solid var(--input-border);
@@ -352,12 +385,16 @@
       padding: 6px 10px;
       color: var(--text-primary);
       font-size: 0.9rem;
-      min-width: 70px;
     }
-
     .setting-group select:focus {
       outline: none;
       border-color: var(--accent);
+    }
+    .setting-group input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+      cursor: pointer;
     }
 
     /* === GENERATE BUTTON === */
@@ -513,22 +550,25 @@
     
     <!-- === AUTH SECTION === -->
     <section class="auth-section">
-      <h2>🔐 Аутентификация</h2>
       <div class="auth-input-group">
+	  <h2>🔐 Авторизация   </h2>
         <input type="password" id="apiKeyInput" placeholder="Вставьте API ключ (sk_ или pk_)" />
         <button class="btn" id="saveKeyBtn">💾 Сохранить</button>
-        <button class="btn btn-secondary" id="loadKeyBtn">🔄 Загрузить</button>
+        <button class="btn btn-secondary" id="loadKeyBtn">🔄 Обновить</button>
       </div>
       <div class="user-info hidden" id="userInfo">
         <span class="email" id="userEmail">user@example.com</span>
+		<div class="balance">
+		Баланс:
         <span class="balance" id="userBalance">0 ₽</span>
+		</div>
         <button class="btn btn-danger btn-sm" id="logoutBtn">🚪 Выйти</button>
       </div>
     </section>
 
     <!-- === PROMPT SECTION === -->
     <section class="prompt-section">
-      <h3>✏️ Промпт</h3>
+      <h3>✏️ Промт</h3>
       <div class="prompt-wrapper">
         <textarea id="prompt" placeholder="Введите описание изображения на русском..."></textarea>
       </div>
@@ -538,7 +578,7 @@
 
       <!-- Image Upload -->
       <div class="image-drop-zone" id="dropZone">
-        <span>📎 Перетащите изображение сюда, выберите файл или вставьте из буфера (Ctrl+V)</span>
+        <span>📎 Для редактирования перетащите изображение сюда, или выберите файл, или вставьте из буфера (Ctrl+V)</span>
         <input type="file" id="fileInput" accept="image/*" />
       </div>
       <div class="image-preview hidden" id="imagePreview">
@@ -565,24 +605,29 @@
       </div>
     </section>
 
-    <!-- === SETTINGS === -->
-    <section class="prompt-section">
-      <h3>⚙️ Настройки</h3>
-      <div class="settings-row">
-        <div class="setting-group">
-          <label for="imageCount">Количество на модель:</label>
-          <select id="imageCount">
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-          </select>
+    <!-- === НАСТРОЙКИ (объединены с заголовком в одну строку) === -->
+    <section class="prompt-section" style="padding: 12px 16px;">
+      <div class="settings-compact">
+        <div class="settings-left">
+          <h3>⚙️ Настройки</h3>
+		  <div class="settings-controls">
+          <div class="setting-group">
+            <label for="imageCount">Количество картинок на модель:</label>
+            <select id="imageCount">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </div>
+          <div class="setting-group">
+            <label>
+              <input type="checkbox" id="enhancePrompt" checked /> 
+              Улучшить промпт (enhance)
+            </label>
+          </div>
         </div>
-        <div class="setting-group">
-          <label>
-            <input type="checkbox" id="enhancePrompt" checked /> 
-            Улучшить промпт (enhance)
-          </label>
         </div>
+        
       </div>
     </section>
 
@@ -593,7 +638,6 @@
       </button>
       <div class="loading" id="loading">
         <div class="spinner"></div>
-        <span id="loadingText">Генерация...</span>
       </div>
     </div>
 
@@ -605,7 +649,6 @@
 
   </div>
 
-  <!-- Toast container -->
   <div id="toastContainer"></div>
 
   <script>
@@ -616,7 +659,6 @@
     
     // === PRICE CONVERSION ===
     const RUB_PER_POLLEN = 75;
-    // Nanobanana models special multiplier
     const NANOBANANA_MULTIPLIER = 1150;
     const NANOBANANA_MODELS = ['nanobanana', 'nanobanana-2', 'nanobanana-pro'];
     
@@ -653,68 +695,44 @@
       enhancePrompt: document.getElementById('enhancePrompt'),
       generateBtn: document.getElementById('generateBtn'),
       loading: document.getElementById('loading'),
-      loadingText: document.getElementById('loadingText'),
       resultsSection: document.getElementById('resultsSection'),
       resultsGrid: document.getElementById('resultsGrid'),
       toastContainer: document.getElementById('toastContainer')
     };
 
     // === UTILS ===
-	// === PRICE CONVERSION ===
-
-	function getModelPriceInPollen(model) {
-	  // Try to get price from pricing.completionImageTokens
-	  if (model.pricing && model.pricing.completionImageTokens) {
-		return parseFloat(model.pricing.completionImageTokens);
-	  }
-	  // Fallback: try price.completionImageTokens
-	  if (model.price && model.price.completionImageTokens) {
-		return parseFloat(model.price.completionImageTokens);
-	  }
-	  return null;
-	}
-
-	function isNanobananaModel(modelId) {
-	  if (!modelId) return false;
-	  const modelLower = modelId.toLowerCase();
-	  return NANOBANANA_MODELS.some(m => modelLower === m.toLowerCase() || modelLower.includes(m.toLowerCase()));
-	}
-
-	function convertPollenToRub(pollen, modelId) {
-	  if (!pollen && pollen !== 0) return 0;
-	  
-	  // For nanobanana models: apply multiplier to pollen FIRST, then convert to rub
-	  if (isNanobananaModel(modelId)) {
-		const adjustedPollen = pollen * NANOBANANA_MULTIPLIER;
-		console.log(`Nanobanana detected: ${modelId}, original pollen: ${pollen}, adjusted pollen: ${adjustedPollen}, rub: ${adjustedPollen * RUB_PER_POLLEN}`);
-		return adjustedPollen * RUB_PER_POLLEN;
-	  }
-	  
-	  // For regular models: just convert pollen to rub
-	  return pollen * RUB_PER_POLLEN;
-	}
-
-	function formatPrice(model) {
-	  const pollenPrice = getModelPriceInPollen(model);
-	  if (pollenPrice === null) return '';
-	  const modelId = model.id || model.name;
-	  const rubPrice = convertPollenToRub(pollenPrice, modelId);
-	  return `${rubPrice.toFixed(2)} ₽`;
-	}
-
-    // === INIT ===
-    document.addEventListener('DOMContentLoaded', () => {
-      if (apiKey) {
-        els.apiKeyInput.value = apiKey;
-        updateAuthUI(true);
-        loadUserProfile();
+    function getModelPriceInPollen(model) {
+      if (model.pricing && model.pricing.completionImageTokens) {
+        return parseFloat(model.pricing.completionImageTokens);
       }
-      loadModels();
-      setupEventListeners();
-      setupTranslation();
-      // Hide loading indicator initially
-      els.loading.classList.remove('active');
-    });
+      if (model.price && model.price.completionImageTokens) {
+        return parseFloat(model.price.completionImageTokens);
+      }
+      return null;
+    }
+
+    function isNanobananaModel(modelId) {
+      if (!modelId) return false;
+      const modelLower = modelId.toLowerCase();
+      return NANOBANANA_MODELS.some(m => modelLower === m.toLowerCase() || modelLower.includes(m.toLowerCase()));
+    }
+
+    function convertPollenToRub(pollen, modelId) {
+      if (!pollen && pollen !== 0) return 0;
+      if (isNanobananaModel(modelId)) {
+        const adjustedPollen = pollen * NANOBANANA_MULTIPLIER;
+        return adjustedPollen * RUB_PER_POLLEN;
+      }
+      return pollen * RUB_PER_POLLEN;
+    }
+
+    function formatPrice(model) {
+      const pollenPrice = getModelPriceInPollen(model);
+      if (pollenPrice === null) return '';
+      const modelId = model.id || model.name;
+      const rubPrice = convertPollenToRub(pollenPrice, modelId);
+      return `${rubPrice.toFixed(2)} ₽`;
+    }
 
     // === AUTH ===
     function updateAuthUI(isAuthenticated) {
@@ -737,7 +755,6 @@
             headers: { 'Authorization': `Bearer ${apiKey}` }
           }).then(r => r.ok ? r.json() : null)
         ]);
-        
         if (profile?.email) els.userEmail.textContent = profile.email;
         if (balance?.balance !== undefined) {
           const rubBalance = convertPollenToRub(balance.balance);
@@ -749,56 +766,14 @@
       }
     }
 
-    els.saveKeyBtn.addEventListener('click', () => {
-      const key = els.apiKeyInput.value.trim();
-      if (!key) {
-        showToast('Введите API ключ', 'error');
-        return;
-      }
-      if (!key.startsWith('sk_') && !key.startsWith('pk_')) {
-        showToast('Неверный формат ключа (должен начинаться с sk_ или pk_)', 'error');
-        return;
-      }
-      apiKey = key;
-      localStorage.setItem(STORAGE_KEY, key);
-      updateAuthUI(true);
-      loadUserProfile();
-      showToast('Ключ сохранён ✓', 'success');
-    });
-
-    els.loadKeyBtn.addEventListener('click', () => {
-      const key = localStorage.getItem(STORAGE_KEY);
-      if (key) {
-        els.apiKeyInput.value = key;
-        apiKey = key;
-        updateAuthUI(true);
-        loadUserProfile();
-        showToast('Ключ загружен ✓', 'success');
-      } else {
-        showToast('Сохранённый ключ не найден', 'error');
-      }
-    });
-
-    els.logoutBtn.addEventListener('click', () => {
-      localStorage.removeItem(STORAGE_KEY);
-      apiKey = '';
-      els.apiKeyInput.value = '';
-      updateAuthUI(false);
-      showToast('Вы вышли из аккаунта', 'success');
-    });
-
-    // === MODELS ===
+    // === MODELS with VISUAL HIGHLIGHT ===
     async function loadModels() {
       els.modelsGrid.innerHTML = '<div class="text-center" style="grid-column:1/-1;color:var(--text-secondary);padding:20px;">Загрузка моделей...</div>';
       try {
         const res = await fetch(`${API_BASE}/image/models`);
         if (!res.ok) throw new Error('Failed to fetch models');
         const allModels = await res.json();
-        
-        // Filter: only image output modality
-        models = allModels.filter(m => 
-          m.output_modalities?.includes('image')
-        ).map(m => ({
+        models = allModels.filter(m => m.output_modalities?.includes('image')).map(m => ({
           id: m.name || m.id,
           name: m.name || m.id,
           paid_only: m.paid_only || false,
@@ -807,7 +782,6 @@
           supportsImage: m.input_modalities?.includes('image') || false,
           ...m
         }));
-        
         renderModels();
       } catch (e) {
         console.error('Error loading models:', e);
@@ -826,7 +800,7 @@
         const isSelected = selectedModels.includes(model.id);
         const priceRub = formatPrice(model);
         return `
-          <label class="model-item ${isDisabled ? 'disabled' : ''}" data-model="${model.id}">
+          <label class="model-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}" data-model="${model.id}">
             <input type="checkbox" ${isSelected ? 'checked' : ''} ${isDisabled ? 'disabled' : ''} 
                    data-model="${model.id}" ${isDisabled ? 'title="Модель не поддерживает загрузку изображений"' : ''}/>
             <div class="model-info">
@@ -841,13 +815,30 @@
         `;
       }).join('');
 
-      // Attach checkbox listeners
-      els.modelsGrid.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-        cb.addEventListener('change', handleModelSelection);
+      // Attach listeners + синхронизация выделения
+      els.modelsGrid.querySelectorAll('.model-item').forEach(label => {
+        const cb = label.querySelector('input[type="checkbox"]');
+        if (cb) {
+          cb.addEventListener('change', handleModelSelection);
+        }
+      });
+      // дополнительно обновим классы для синхронизации при клике на лейбл (чтобы выделение менялось мгновенно)
+      els.modelsGrid.querySelectorAll('.model-item').forEach(label => {
+        label.addEventListener('click', (e) => {
+          if (e.target.type !== 'checkbox') {
+            const cb = label.querySelector('input[type="checkbox"]');
+            if (cb && !cb.disabled) {
+              cb.checked = !cb.checked;
+              const changeEvent = new Event('change', { bubbles: true });
+              cb.dispatchEvent(changeEvent);
+            }
+          }
+        });
       });
     }
 
     function handleModelSelection(e) {
+      e.stopPropagation();
       const modelId = e.target.dataset.model;
       const isChecked = e.target.checked;
       
@@ -857,42 +848,39 @@
           showToast('Можно выбрать максимум 5 моделей', 'error');
           return;
         }
-        if (!selectedModels.includes(modelId)) {
-          selectedModels.push(modelId);
-        }
+        if (!selectedModels.includes(modelId)) selectedModels.push(modelId);
       } else {
         selectedModels = selectedModels.filter(id => id !== modelId);
       }
       
       els.selectedCount.textContent = selectedModels.length;
       updateGenerateButton();
+      // визуальное выделение модели (обновляем классы)
+      document.querySelectorAll('.model-item').forEach(label => {
+        const cb = label.querySelector('input[type="checkbox"]');
+        if (cb && cb.dataset.model === modelId) {
+          if (isChecked) label.classList.add('selected');
+          else label.classList.remove('selected');
+        }
+      });
     }
-
-    els.refreshModels.addEventListener('click', () => {
-      loadModels();
-      showToast('Список моделей обновлён', 'success');
-    });
 
     // === PROMPT & TRANSLATION ===
     function setupTranslation() {
       let translateTimeout;
-      
       els.prompt.addEventListener('input', () => {
         clearTimeout(translateTimeout);
         const text = els.prompt.value.trim();
-        
         if (!text || !/[а-яА-ЯёЁ]/.test(text)) {
           els.translation.classList.add('empty');
           return;
         }
-        
         translateTimeout = setTimeout(async () => {
           try {
             const encoded = encodeURIComponent(text);
             const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=ru&tl=en&dt=t&q=${encoded}`);
             const data = await res.json();
             const translated = data[0][0][0];
-            
             els.translatedText.textContent = translated;
             els.translation.classList.remove('empty');
           } catch (e) {
@@ -906,21 +894,13 @@
 
     // === IMAGE UPLOAD ===
     function setupImageUpload() {
-      // Click to open file picker
       els.dropZone.addEventListener('click', () => els.fileInput.click());
-      
-      // File select
       els.fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) handleImageFile(file);
       });
-
-      // Drag & drop
       ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
-        els.dropZone.addEventListener(evt, (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        });
+        els.dropZone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); });
       });
       ['dragenter', 'dragover'].forEach(evt => {
         els.dropZone.addEventListener(evt, () => els.dropZone.classList.add('dragover'));
@@ -930,58 +910,37 @@
       });
       els.dropZone.addEventListener('drop', (e) => {
         const file = e.dataTransfer.files[0];
-        if (file && file.type.startsWith('image/')) {
-          handleImageFile(file);
-        }
+        if (file && file.type.startsWith('image/')) handleImageFile(file);
       });
-
-      // Paste from clipboard
       document.addEventListener('paste', (e) => {
         const items = e.clipboardData?.items;
         if (!items) return;
         for (const item of items) {
           if (item.type?.startsWith('image/')) {
             const file = item.getAsFile();
-            if (file) {
-              handleImageFile(file);
-              break;
-            }
+            if (file) { handleImageFile(file); break; }
           }
         }
       });
-
-      // Remove image
       els.removeImg.addEventListener('click', () => {
         attachedImage = null;
         els.imagePreview.classList.add('hidden');
         els.fileInput.value = '';
-        renderModels(); // Re-render to enable/disable model checkboxes
+        renderModels();
         updateGenerateButton();
       });
     }
 
     async function handleImageFile(file) {
-      if (!file.type.startsWith('image/')) {
-        showToast('Выберите изображение', 'error');
-        return;
-      }
-      if (file.size > 10 * 1024 * 1024) {
-        showToast('Файл слишком большой (макс. 10 МБ)', 'error');
-        return;
-      }
-
+      if (!file.type.startsWith('image/')) { showToast('Выберите изображение', 'error'); return; }
+      if (file.size > 10 * 1024 * 1024) { showToast('Файл слишком большой (макс. 10 МБ)', 'error'); return; }
       attachedImage = file;
       els.fileName.textContent = file.name;
       els.fileSize.textContent = formatFileSize(file.size);
-      
       const reader = new FileReader();
-      reader.onload = (e) => {
-        els.previewImg.src = e.target.result;
-        els.imagePreview.classList.remove('hidden');
-      };
+      reader.onload = (e) => { els.previewImg.src = e.target.result; els.imagePreview.classList.remove('hidden'); };
       reader.readAsDataURL(file);
-      
-      renderModels(); // Re-render to disable models that don't support images
+      renderModels();
       updateGenerateButton();
       showToast('Изображение добавлено ✓', 'success');
     }
@@ -992,8 +951,6 @@
       return (bytes/(1024*1024)).toFixed(1) + ' MB';
     }
 
-    setupImageUpload();
-
     // === GENERATION ===
     function updateGenerateButton() {
       const hasPrompt = els.prompt.value.trim().length > 0;
@@ -1003,183 +960,55 @@
         const m = models.find(x => x.id === id);
         return m?.supportsImage;
       });
-      
       els.generateBtn.disabled = !(hasPrompt && hasModels && hasAuth && imageCompatible);
-      
-      if (attachedImage && !imageCompatible) {
-        showToast('Выберите модель, поддерживающую загрузку изображений', 'error');
-      }
     }
 
-    els.prompt.addEventListener('input', updateGenerateButton);
-
-    els.generateBtn.addEventListener('click', async () => {
-      if (isGenerating) return;
-      
-      const prompt = els.prompt.value.trim();
-      const translatedPrompt = els.translatedText.textContent || prompt;
-      const count = parseInt(els.imageCount.value);
-      const enhance = els.enhancePrompt.checked;
-      
-      if (!prompt) {
-        showToast('Введите промпт', 'error');
-        return;
-      }
-      if (selectedModels.length === 0) {
-        showToast('Выберите хотя бы одну модель', 'error');
-        return;
-      }
-      if (!apiKey) {
-        showToast('Требуется аутентификация', 'error');
-        return;
-      }
-
-      // Filter models: if image attached, only use models that support it
-      const usableModels = attachedImage 
-        ? selectedModels.filter(id => models.find(m => m.id === id)?.supportsImage)
-        : selectedModels;
-      
-      if (usableModels.length === 0) {
-        showToast('Нет моделей, поддерживающих загрузку изображений', 'error');
-        return;
-      }
-
-      isGenerating = true;
-      els.loading.classList.add('active');
-      els.generateBtn.disabled = true;
-      els.resultsGrid.innerHTML = '';
-      els.resultsSection.classList.remove('hidden');
-      
-      const tasks = [];
-      const seed = -1; // Force regeneration
-
-      for (const modelId of usableModels) {
-        const model = models.find(m => m.id === modelId);
-        if (!model) continue;
-        
-        for (let i = 0; i < count; i++) {
-          tasks.push(generateImage({
-            model: modelId,
-            prompt: translatedPrompt,
-            image: attachedImage,
-            seed: seed + Math.floor(Math.random() * 10000),
-            enhance,
-            modelInfo: model
-          }));
+    async function generateImage({ model, prompt, image, seed, enhance, modelInfo }) {
+      try {
+        let url, options;
+        if (image && modelInfo.supportsImage) {
+          url = `${API_BASE}/v1/images/edits`;
+          const formData = new FormData();
+          formData.append('prompt', prompt);
+          formData.append('model', model);
+          formData.append('image', image);
+          formData.append('seed', seed.toString());
+          if (enhance) formData.append('enhance', 'true');
+          options = { method: 'POST', headers: { 'Authorization': `Bearer ${apiKey}` }, body: formData };
+        } else {
+          const params = new URLSearchParams({ model, seed: seed.toString(), width: '1024', height: '1024' });
+          if (enhance) params.append('enhance', 'true');
+          const encodedPrompt = encodeURIComponent(prompt);
+          url = `${API_BASE}/image/${encodedPrompt}?${params.toString()}`;
+          options = { method: 'GET', headers: { 'Authorization': `Bearer ${apiKey}` } };
         }
-      }
-
-      const results = await Promise.allSettled(tasks);
-      
-      results.forEach(result => {
-        if (result.status === 'fulfilled' && result.value) {
-          addResultCard(result.value);
+        const res = await fetch(url, options);
+        if (!res.ok) { const err = await res.json().catch(()=>({})); throw new Error(err.error?.message || `HTTP ${res.status}`); }
+        const contentType = res.headers.get('content-type');
+        let imgUrl;
+        if (contentType && contentType.includes('application/json')) {
+          const data = await res.json();
+          if (data.data && data.data[0] && data.data[0].b64_json) {
+            const base64Data = data.data[0].b64_json;
+            const blob = base64ToBlob(base64Data, 'image/png');
+            imgUrl = URL.createObjectURL(blob);
+          } else throw new Error('Invalid response format');
+        } else {
+          const blob = await res.blob();
+          imgUrl = URL.createObjectURL(blob);
         }
-      });
-      
-      const successCount = results.filter(r => r.status === 'fulfilled' && r.value).length;
-      const failCount = results.length - successCount;
-      
-      els.loading.classList.remove('active');
-      isGenerating = false;
-      els.generateBtn.disabled = false;
-      
-      if (successCount > 0) {
-        showToast(`Готово: ${successCount} изображений${failCount ? `, ${failCount} ошибок` : ''}`, 'success');
-      } else {
-        showToast('Не удалось сгенерировать изображения', 'error');
-      }
-    });
+        return { url: imgUrl, model: modelInfo.name, isPaid: modelInfo.paid_only };
+      } catch (e) { console.warn(`Generation failed for ${model}:`, e); return null; }
+    }
 
-	async function generateImage({ model, prompt, image, seed, enhance, modelInfo }) {
-	  try {
-		let url, options;
-		
-		if (image && modelInfo.supportsImage) {
-		  // POST /v1/images/edits для загрузки изображения
-		  url = `${API_BASE}/v1/images/edits`;
-		  const formData = new FormData();
-		  formData.append('prompt', prompt);
-		  formData.append('model', model);
-		  formData.append('image', image);
-		  formData.append('seed', seed.toString());
-		  if (enhance) formData.append('enhance', 'true');
-		  
-		  options = {
-			method: 'POST',
-			headers: { 'Authorization': `Bearer ${apiKey}` },
-			body: formData
-		  };
-		} else {
-		  // GET /image/{prompt} для простых запросов
-		  const params = new URLSearchParams({
-			model,
-			seed: seed.toString(),
-			width: '1024',
-			height: '1024'
-		  });
-		  if (enhance) params.append('enhance', 'true');
-		  
-		  const encodedPrompt = encodeURIComponent(prompt);
-		  url = `${API_BASE}/image/${encodedPrompt}?${params.toString()}`;
-		  options = {
-			method: 'GET',
-			headers: { 'Authorization': `Bearer ${apiKey}` }
-		  };
-		}
-
-		const res = await fetch(url, options);
-		if (!res.ok) {
-		  const err = await res.json().catch(() => ({}));
-		  throw new Error(err.error?.message || `HTTP ${res.status}`);
-		}
-		
-		// Проверяем тип ответа
-		const contentType = res.headers.get('content-type');
-		let imgUrl;
-		
-		if (contentType && contentType.includes('application/json')) {
-		  // Ответ в формате JSON с base64
-		  const data = await res.json();
-		  if (data.data && data.data[0] && data.data[0].b64_json) {
-			// Создаем URL из base64 строки
-			const base64Data = data.data[0].b64_json;
-			const blob = base64ToBlob(base64Data, 'image/png');
-			imgUrl = URL.createObjectURL(blob);
-		  } else {
-			throw new Error('Invalid response format');
-		  }
-		} else {
-		  // Ответ в формате изображения (blob)
-		  const blob = await res.blob();
-		  imgUrl = URL.createObjectURL(blob);
-		}
-		
-		return {
-		  url: imgUrl,
-		  model: modelInfo.name,
-		  isPaid: modelInfo.paid_only
-		};
-	  } catch (e) {
-		console.warn(`Generation failed for ${model}:`, e);
-		return null;
-	  }
-	}
-
-	// Функция для преобразования base64 в Blob
-	function base64ToBlob(base64, contentType = 'image/png') {
-	  // Удаляем возможный префикс data:image/png;base64,
-	  const base64Clean = base64.replace(/^data:image\/\w+;base64,/, '');
-	  const byteCharacters = atob(base64Clean);
-	  const byteNumbers = new Array(byteCharacters.length);
-	  
-	  for (let i = 0; i < byteCharacters.length; i++) {
-		byteNumbers[i] = byteCharacters.charCodeAt(i);
-	  }
-	  
-	  const byteArray = new Uint8Array(byteNumbers);
-	  return new Blob([byteArray], { type: contentType });
-	}
+    function base64ToBlob(base64, contentType) {
+      const base64Clean = base64.replace(/^data:image\/\w+;base64,/, '');
+      const byteCharacters = atob(base64Clean);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+      const byteArray = new Uint8Array(byteNumbers);
+      return new Blob([byteArray], { type: contentType });
+    }
 
     function addResultCard({ url, model, isPaid }) {
       const card = document.createElement('div');
@@ -1187,50 +1016,71 @@
       card.innerHTML = `
         <img src="${url}" alt="Generated" loading="lazy" />
         <div class="result-info">
-          <div class="result-model">
-            ${model} ${isPaid ? '<span class="star">★</span>' : ''}
-          </div>
-          <div class="result-actions">
-            <button class="btn btn-secondary btn-sm" data-action="save">💾 Сохранить</button>
-          </div>
-        </div>
-      `;
-      
-      // Save button
+          <div class="result-model">${model} ${isPaid ? '<span class="star">★</span>' : ''}</div>
+          <div class="result-actions"><button class="btn btn-secondary btn-sm" data-action="save">💾 Сохранить</button></div>
+        </div>`;
       card.querySelector('[data-action="save"]').addEventListener('click', () => {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `pollinations-${model.replace(/\s+/g, '-')}-${Date.now()}.png`;
-        a.click();
+        const a = document.createElement('a'); a.href = url; a.download = `pollinations-${model.replace(/\s+/g, '-')}-${Date.now()}.png`; a.click();
         showToast('Изображение сохранено', 'success');
       });
-      
       els.resultsGrid.appendChild(card);
     }
 
-    // === TOAST ===
+    // === EVENT LISTENERS ===
+    els.saveKeyBtn.addEventListener('click', () => {
+      const key = els.apiKeyInput.value.trim();
+      if (!key) { showToast('Введите API ключ', 'error'); return; }
+      if (!key.startsWith('sk_') && !key.startsWith('pk_')) { showToast('Неверный формат ключа', 'error'); return; }
+      apiKey = key; localStorage.setItem(STORAGE_KEY, key); updateAuthUI(true); loadUserProfile(); showToast('Ключ сохранён ✓', 'success');
+    });
+    els.loadKeyBtn.addEventListener('click', () => {
+      const key = localStorage.getItem(STORAGE_KEY);
+      if (key) { els.apiKeyInput.value = key; apiKey = key; updateAuthUI(true); loadUserProfile(); showToast('Ключ загружен ✓', 'success'); }
+      else showToast('Сохранённый ключ не найден', 'error');
+    });
+    els.logoutBtn.addEventListener('click', () => { localStorage.removeItem(STORAGE_KEY); apiKey = ''; els.apiKeyInput.value = ''; updateAuthUI(false); showToast('Вы вышли из аккаунта', 'success'); });
+    els.refreshModels.addEventListener('click', () => { loadModels(); showToast('Список моделей обновлён', 'success'); });
+    els.prompt.addEventListener('input', updateGenerateButton);
+    els.generateBtn.addEventListener('click', async () => {
+      if (isGenerating) return;
+      const prompt = els.prompt.value.trim();
+      const translatedPrompt = els.translatedText.textContent || prompt;
+      const count = parseInt(els.imageCount.value);
+      const enhance = els.enhancePrompt.checked;
+      if (!prompt) { showToast('Введите промпт', 'error'); return; }
+      if (selectedModels.length === 0) { showToast('Выберите хотя бы одну модель', 'error'); return; }
+      if (!apiKey) { showToast('Требуется аутентификация', 'error'); return; }
+      const usableModels = attachedImage ? selectedModels.filter(id => models.find(m => m.id === id)?.supportsImage) : selectedModels;
+      if (usableModels.length === 0) { showToast('Нет моделей, поддерживающих загрузку изображений', 'error'); return; }
+      isGenerating = true; els.loading.classList.add('active'); els.generateBtn.disabled = true; els.resultsGrid.innerHTML = ''; els.resultsSection.classList.remove('hidden');
+      const tasks = [];
+      const seed = -1;
+      for (const modelId of usableModels) {
+        const model = models.find(m => m.id === modelId);
+        if (!model) continue;
+        for (let i = 0; i < count; i++) tasks.push(generateImage({ model: modelId, prompt: translatedPrompt, image: attachedImage, seed: seed + Math.floor(Math.random() * 10000), enhance, modelInfo: model }));
+      }
+      const results = await Promise.allSettled(tasks);
+      results.forEach(result => { if (result.status === 'fulfilled' && result.value) addResultCard(result.value); });
+      const successCount = results.filter(r => r.status === 'fulfilled' && r.value).length;
+      const failCount = results.length - successCount;
+      els.loading.classList.remove('active'); isGenerating = false; els.generateBtn.disabled = false;
+      showToast(successCount ? `Готово: ${successCount} изображений${failCount ? `, ${failCount} ошибок` : ''}` : 'Не удалось сгенерировать изображения', successCount ? 'success' : 'error');
+    });
+
     function showToast(message, type = 'info') {
-      const toast = document.createElement('div');
-      toast.className = `toast ${type}`;
-      toast.textContent = message;
-      els.toastContainer.appendChild(toast);
-      
-      setTimeout(() => {
-        toast.style.animation = 'slideIn 0.3s ease reverse';
-        setTimeout(() => toast.remove(), 300);
-      }, 3000);
+      const toast = document.createElement('div'); toast.className = `toast ${type}`; toast.textContent = message; els.toastContainer.appendChild(toast);
+      setTimeout(() => { toast.style.animation = 'slideIn 0.3s ease reverse'; setTimeout(() => toast.remove(), 300); }, 3000);
     }
 
-    // === UTILS ===
-    function setupEventListeners() {
-      // Close translation when prompt is empty
-      els.prompt.addEventListener('input', () => {
-        if (!els.prompt.value.trim()) {
-          els.translation.classList.add('empty');
-        }
-        updateGenerateButton();
-      });
-    }
+    function setupEventListeners() { els.prompt.addEventListener('input', () => { if (!els.prompt.value.trim()) els.translation.classList.add('empty'); updateGenerateButton(); }); }
+
+    // INIT
+    document.addEventListener('DOMContentLoaded', () => {
+      if (apiKey) { els.apiKeyInput.value = apiKey; updateAuthUI(true); loadUserProfile(); }
+      loadModels(); setupEventListeners(); setupTranslation(); setupImageUpload();
+      els.loading.classList.remove('active');
+    });
   </script>
 </body>
 </html>
