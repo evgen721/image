@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Pollinations.ai Image Generator — обновленный интерфейс</title>
+  <title>Image Generator</title>
   <style>
     :root {
       --bg-primary: #121212;
@@ -19,10 +19,11 @@
       --border: #333;
       --input-bg: #252525;
       --input-border: #444;
+	  --accent2: #866ad3;
       --shadow: 0 4px 12px rgba(0,0,0,0.4);
       /* новая подсветка для выбранной модели */
       --model-selected-bg: rgba(124, 77, 255, 0.08);
-      --model-selected-border: #7c4dff;
+      --model-selected-border: #866ad3;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -273,7 +274,7 @@
     .models-grid::-webkit-scrollbar-track { background: var(--bg-tertiary); border-radius: 3px; }
     .models-grid::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
 
-    /* НОВЫЙ СТИЛЬ ДЛЯ ВЫДЕЛЕНИЯ ВЫБРАННОЙ МОДЕЛИ */
+    /* СТИЛИ ДЛЯ ВЫДЕЛЕНИЯ ВЫБРАННОЙ МОДЕЛИ + УВЕЛИЧЕННАЯ ОБЛАСТЬ КЛИКА */
     .model-item {
       display: flex;
       align-items: center;
@@ -284,9 +285,12 @@
       border-radius: 8px;
       cursor: pointer;
       transition: all 0.2s ease;
+      /* Убираем стандартное поведение label для вложенного чекбокса, но кликабельность всей области */
+      user-select: none;
     }
 
     .model-item:hover { border-color: var(--accent); }
+	.model-item.selected:hover { border-color: var(--accent); } 
     
     /* Выделенная модель (выбрана) */
     .model-item.selected {
@@ -304,11 +308,16 @@
       border-color: var(--input-border);
     }
 
+    /* Скрываем нативный чекбокс, чтобы управлять через кастомный — так удобнее и проще клик по всей области */
     .model-item input[type="checkbox"] {
-      width: 25px;
-      height: 25px;
+      width: 22px;
+      height: 22px;
       cursor: pointer;
-      accent-color: var(--accent);
+      accent-color: var(--accent2);
+      margin: 0;
+      flex-shrink: 0;
+      /* Оставляем видимым, но область клика все равно расширена за счет родительского label */
+      pointer-events: auto;
     }
 
     .model-info {
@@ -354,7 +363,7 @@
     }
     .settings-left {
       display: flex;
-      align-items: baseline;
+      align-items: center;
       gap: 20px;
       flex-wrap: wrap;
     }
@@ -377,6 +386,7 @@
     .setting-group label {
       font-size: 0.9rem;
       color: var(--text-secondary);
+      cursor: pointer;
     }
     .setting-group select {
       background: var(--input-bg);
@@ -390,10 +400,27 @@
       outline: none;
       border-color: var(--accent);
     }
-    .setting-group input[type="checkbox"] {
+    /* Вертикальное выравнивание чекбокса по центру текста */
+    .setting-group.checkbox-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      vertical-align: middle;
+    }
+    .setting-group.checkbox-group input[type="checkbox"] {
       width: 18px;
       height: 18px;
+      margin: 0;
       accent-color: var(--accent);
+      cursor: pointer;
+      vertical-align: middle;
+    }
+    .setting-group.checkbox-group label {
+      margin: 0;
+      line-height: 1.4;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       cursor: pointer;
     }
 
@@ -619,11 +646,10 @@
               <option value="3">3</option>
             </select>
           </div>
-          <div class="setting-group">
-            <label>
-              <input type="checkbox" id="enhancePrompt" checked /> 
-              Улучшить промпт (enhance)
-            </label>
+          <!-- Исправлено выравнивание чекбокса по центру текста -->
+          <div class="setting-group checkbox-group">
+            <input type="checkbox" id="enhancePrompt" checked /> 
+            <label for="enhancePrompt">Улучшить промпт (enhance)</label>
           </div>
         </div>
         </div>
@@ -766,7 +792,7 @@
       }
     }
 
-    // === MODELS with VISUAL HIGHLIGHT ===
+    // === MODELS with VISUAL HIGHLIGHT и расширенная область клика ===
     async function loadModels() {
       els.modelsGrid.innerHTML = '<div class="text-center" style="grid-column:1/-1;color:var(--text-secondary);padding:20px;">Загрузка моделей...</div>';
       try {
@@ -800,7 +826,7 @@
         const isSelected = selectedModels.includes(model.id);
         const priceRub = formatPrice(model);
         return `
-          <label class="model-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}" data-model="${model.id}">
+          <div class="model-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}" data-model="${model.id}">
             <input type="checkbox" ${isSelected ? 'checked' : ''} ${isDisabled ? 'disabled' : ''} 
                    data-model="${model.id}" ${isDisabled ? 'title="Модель не поддерживает загрузку изображений"' : ''}/>
             <div class="model-info">
@@ -811,58 +837,53 @@
               </div>
               ${priceRub ? `<div class="model-price ${model.paid_only ? 'paid' : ''}">💰 ${priceRub}</div>` : ''}
             </div>
-          </label>
+          </div>
         `;
       }).join('');
 
-      // Attach listeners + синхронизация выделения
-      els.modelsGrid.querySelectorAll('.model-item').forEach(label => {
-        const cb = label.querySelector('input[type="checkbox"]');
-        if (cb) {
-          cb.addEventListener('change', handleModelSelection);
-        }
-      });
-      // дополнительно обновим классы для синхронизации при клике на лейбл (чтобы выделение менялось мгновенно)
-      els.modelsGrid.querySelectorAll('.model-item').forEach(label => {
-        label.addEventListener('click', (e) => {
-          if (e.target.type !== 'checkbox') {
-            const cb = label.querySelector('input[type="checkbox"]');
-            if (cb && !cb.disabled) {
-              cb.checked = !cb.checked;
-              const changeEvent = new Event('change', { bubbles: true });
-              cb.dispatchEvent(changeEvent);
-            }
+      // Привязываем обработчики: клик по всей карточке переключает чекбокс (расширенная область)
+      els.modelsGrid.querySelectorAll('.model-item').forEach(item => {
+        const cb = item.querySelector('input[type="checkbox"]');
+        if (!cb) return;
+        
+        // Основной обработчик для клика по области карточки (кроме самого чекбокса, чтобы избежать двойного события)
+        item.addEventListener('click', (e) => {
+          // Если клик был именно на чекбоксе - не перехватываем, пусть сработает его родной change
+          if (e.target === cb) return;
+          // Иначе переключаем чекбокс и вызываем событие change вручную
+          if (!cb.disabled) {
+            cb.checked = !cb.checked;
+            const changeEvent = new Event('change', { bubbles: true });
+            cb.dispatchEvent(changeEvent);
           }
         });
+        
+        // Обработчик изменения чекбокса (логика выделения, ограничения 5)
+        cb.addEventListener('change', (e) => {
+          e.stopPropagation();
+          const modelId = cb.dataset.model;
+          const isChecked = cb.checked;
+          
+          if (isChecked) {
+            if (selectedModels.length >= 5) {
+              cb.checked = false;
+              showToast('Можно выбрать максимум 5 моделей', 'error');
+              return;
+            }
+            if (!selectedModels.includes(modelId)) selectedModels.push(modelId);
+          } else {
+            selectedModels = selectedModels.filter(id => id !== modelId);
+          }
+          
+          els.selectedCount.textContent = selectedModels.length;
+          updateGenerateButton();
+          // обновляем класс выделения у родительского элемента
+          if (isChecked) item.classList.add('selected');
+          else item.classList.remove('selected');
+        });
       });
-    }
-
-    function handleModelSelection(e) {
-      e.stopPropagation();
-      const modelId = e.target.dataset.model;
-      const isChecked = e.target.checked;
       
-      if (isChecked) {
-        if (selectedModels.length >= 5) {
-          e.target.checked = false;
-          showToast('Можно выбрать максимум 5 моделей', 'error');
-          return;
-        }
-        if (!selectedModels.includes(modelId)) selectedModels.push(modelId);
-      } else {
-        selectedModels = selectedModels.filter(id => id !== modelId);
-      }
-      
-      els.selectedCount.textContent = selectedModels.length;
       updateGenerateButton();
-      // визуальное выделение модели (обновляем классы)
-      document.querySelectorAll('.model-item').forEach(label => {
-        const cb = label.querySelector('input[type="checkbox"]');
-        if (cb && cb.dataset.model === modelId) {
-          if (isChecked) label.classList.add('selected');
-          else label.classList.remove('selected');
-        }
-      });
     }
 
     // === PROMPT & TRANSLATION ===
