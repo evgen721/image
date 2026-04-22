@@ -4,6 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Image Generator</title>
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline';
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' blob: data: https://gen.pollinations.ai;
+    connect-src 'self' https://gen.pollinations.ai https://enter.pollinations.ai https://translate.googleapis.com;
+    font-src 'self' data:;
+  ">
   <style>
     :root {
       --bg-primary: #121212;
@@ -21,7 +29,6 @@
       --input-border: #444;
 	  --accent2: #866ad3;
       --shadow: 0 4px 12px rgba(0,0,0,0.4);
-      /* новая подсветка для выбранной модели */
       --model-selected-bg: rgba(124, 77, 255, 0.08);
       --model-selected-border: #866ad3;
     }
@@ -274,7 +281,6 @@
     .models-grid::-webkit-scrollbar-track { background: var(--bg-tertiary); border-radius: 3px; }
     .models-grid::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
 
-    /* СТИЛИ ДЛЯ ВЫДЕЛЕНИЯ ВЫБРАННОЙ МОДЕЛИ + УВЕЛИЧЕННАЯ ОБЛАСТЬ КЛИКА */
     .model-item {
       display: flex;
       align-items: center;
@@ -285,14 +291,12 @@
       border-radius: 8px;
       cursor: pointer;
       transition: all 0.2s ease;
-      /* Убираем стандартное поведение label для вложенного чекбокса, но кликабельность всей области */
       user-select: none;
     }
 
     .model-item:hover { border-color: var(--accent); }
 	.model-item.selected:hover { border-color: var(--accent); } 
     
-    /* Выделенная модель (выбрана) */
     .model-item.selected {
       background: var(--model-selected-bg);
       border: 1px solid var(--model-selected-border);
@@ -308,7 +312,6 @@
       border-color: var(--input-border);
     }
 
-    /* Скрываем нативный чекбокс, чтобы управлять через кастомный — так удобнее и проще клик по всей области */
     .model-item input[type="checkbox"] {
       width: 22px;
       height: 22px;
@@ -316,7 +319,6 @@
       accent-color: var(--accent2);
       margin: 0;
       flex-shrink: 0;
-      /* Оставляем видимым, но область клика все равно расширена за счет родительского label */
       pointer-events: auto;
     }
 
@@ -351,7 +353,7 @@
 
     .model-price.paid { color: var(--warning); }
 
-    /* === НАСТРОЙКИ — новая компактная строка === */
+    /* === НАСТРОЙКИ === */
     .settings-compact {
       display: flex;
       align-items: center;
@@ -400,7 +402,6 @@
       outline: none;
       border-color: var(--accent);
     }
-    /* Вертикальное выравнивание чекбокса по центру текста */
     .setting-group.checkbox-group {
       display: inline-flex;
       align-items: center;
@@ -632,7 +633,7 @@
       </div>
     </section>
 
-    <!-- === НАСТРОЙКИ (объединены с заголовком в одну строку) === -->
+    <!-- === НАСТРОЙКИ === -->
     <section class="prompt-section" style="padding: 12px 16px;">
       <div class="settings-compact">
         <div class="settings-left">
@@ -646,7 +647,6 @@
               <option value="3">3</option>
             </select>
           </div>
-          <!-- Исправлено выравнивание чекбокса по центру текста -->
           <div class="setting-group checkbox-group">
             <input type="checkbox" id="enhancePrompt" checked /> 
             <label for="enhancePrompt">Улучшить промпт (enhance)</label>
@@ -689,11 +689,12 @@
     const NANOBANANA_MODELS = ['nanobanana', 'nanobanana-2', 'nanobanana-pro'];
     
     // === STATE ===
-    let apiKey = localStorage.getItem(STORAGE_KEY) || '';
+    let apiKey = sessionStorage.getItem(STORAGE_KEY) || ''; // Используем sessionStorage вместо localStorage
     let models = [];
     let selectedModels = [];
     let attachedImage = null;
     let isGenerating = false;
+    const blobUrls = []; // Массив для отслеживания Blob URL
 
     // === DOM ELEMENTS ===
     const els = {
@@ -727,6 +728,49 @@
     };
 
     // === UTILS ===
+    
+    // Функция для экранирования HTML (защита от XSS)
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // Функция для безопасного создания текстового узла
+    function safeText(str) {
+      return escapeHtml(str);
+    }
+
+    // Валидация URL (защита от открытых редиректов)
+    function isValidApiUrl(url) {
+      const allowedDomains = ['gen.pollinations.ai', 'enter.pollinations.ai', 'translate.googleapis.com'];
+      try {
+        const urlObj = new URL(url);
+        return allowedDomains.some(domain => urlObj.hostname === domain || urlObj.hostname.endsWith('.' + domain));
+      } catch (e) {
+        return false;
+      }
+    }
+
+    // Функция для очистки Blob URL
+    function revokeBlobUrl(url) {
+      if (url && url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+        const index = blobUrls.indexOf(url);
+        if (index > -1) blobUrls.splice(index, 1);
+      }
+    }
+
+    // Очистка всех Blob URL
+    function revokeAllBlobUrls() {
+      blobUrls.forEach(url => URL.revokeObjectURL(url));
+      blobUrls.length = 0;
+    }
+
     function getModelPriceInPollen(model) {
       if (model.pricing && model.pricing.completionImageTokens) {
         return parseFloat(model.pricing.completionImageTokens);
@@ -773,15 +817,22 @@
 
     async function loadUserProfile() {
       try {
+        const profileUrl = `${ACCOUNT_BASE}/account/profile`;
+        const balanceUrl = `${ACCOUNT_BASE}/account/balance`;
+        
+        if (!isValidApiUrl(profileUrl) || !isValidApiUrl(balanceUrl)) {
+          throw new Error('Invalid API URL');
+        }
+        
         const [profile, balance] = await Promise.all([
-          fetch(`${ACCOUNT_BASE}/account/profile`, {
+          fetch(profileUrl, {
             headers: { 'Authorization': `Bearer ${apiKey}` }
           }).then(r => r.ok ? r.json() : null),
-          fetch(`${ACCOUNT_BASE}/account/balance`, {
+          fetch(balanceUrl, {
             headers: { 'Authorization': `Bearer ${apiKey}` }
           }).then(r => r.ok ? r.json() : null)
         ]);
-        if (profile?.email) els.userEmail.textContent = profile.email;
+        if (profile?.email) els.userEmail.textContent = escapeHtml(profile.email);
         if (balance?.balance !== undefined) {
           const rubBalance = convertPollenToRub(balance.balance);
           els.userBalance.textContent = `${rubBalance.toFixed(2)} ₽`;
@@ -792,17 +843,28 @@
       }
     }
 
-    // === MODELS with VISUAL HIGHLIGHT и расширенная область клика ===
+    // === MODELS ===
     async function loadModels() {
       els.modelsGrid.innerHTML = '<div class="text-center" style="grid-column:1/-1;color:var(--text-secondary);padding:20px;">Загрузка моделей...</div>';
       try {
-        const res = await fetch(`${API_BASE}/image/models`);
+        const modelsUrl = `${API_BASE}/image/models`;
+        if (!isValidApiUrl(modelsUrl)) {
+          throw new Error('Invalid API URL');
+        }
+        
+        const res = await fetch(modelsUrl);
         if (!res.ok) throw new Error('Failed to fetch models');
         const allModels = await res.json();
+        
+        // Валидация полученных данных
+        if (!Array.isArray(allModels)) {
+          throw new Error('Invalid response format');
+        }
+        
         models = allModels.filter(m => m.output_modalities?.includes('image')).map(m => ({
-          id: m.name || m.id,
-          name: m.name || m.id,
-          paid_only: m.paid_only || false,
+          id: (m.name || m.id || '').toString(),
+          name: (m.name || m.id || '').toString(),
+          paid_only: !!m.paid_only,
           pricing: m.pricing || null,
           price: m.price || null,
           supportsImage: m.input_modalities?.includes('image') || false,
@@ -811,7 +873,7 @@
         renderModels();
       } catch (e) {
         console.error('Error loading models:', e);
-        els.modelsGrid.innerHTML = `<div class="error-msg" style="grid-column:1/-1;">Ошибка загрузки моделей: ${e.message}</div>`;
+        els.modelsGrid.innerHTML = `<div class="error-msg" style="grid-column:1/-1;">Ошибка загрузки моделей: ${escapeHtml(e.message)}</div>`;
       }
     }
 
@@ -825,32 +887,33 @@
         const isDisabled = !model.supportsImage && attachedImage;
         const isSelected = selectedModels.includes(model.id);
         const priceRub = formatPrice(model);
+        // Экранируем все динамические данные
+        const escapedId = escapeHtml(model.id);
+        const escapedName = escapeHtml(model.name);
+        const escapedPrice = escapeHtml(priceRub);
+        
         return `
-          <div class="model-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}" data-model="${model.id}">
+          <div class="model-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}" data-model="${escapedId}">
             <input type="checkbox" ${isSelected ? 'checked' : ''} ${isDisabled ? 'disabled' : ''} 
-                   data-model="${model.id}" ${isDisabled ? 'title="Модель не поддерживает загрузку изображений"' : ''}/>
+                   data-model="${escapedId}" ${isDisabled ? 'title="Модель не поддерживает загрузку изображений"' : ''}/>
             <div class="model-info">
               <div class="model-name">
-                ${model.name}
+                ${escapedName}
                 ${model.paid_only ? '<span class="star" title="Платная модель">★</span>' : ''}
                 ${model.supportsImage ? '<span class="img-icon" title="Поддерживает загрузку изображения">🖼️</span>' : ''}
               </div>
-              ${priceRub ? `<div class="model-price ${model.paid_only ? 'paid' : ''}">💰 ${priceRub}</div>` : ''}
+              ${escapedPrice ? `<div class="model-price ${model.paid_only ? 'paid' : ''}">💰 ${escapedPrice}</div>` : ''}
             </div>
           </div>
         `;
       }).join('');
 
-      // Привязываем обработчики: клик по всей карточке переключает чекбокс (расширенная область)
       els.modelsGrid.querySelectorAll('.model-item').forEach(item => {
         const cb = item.querySelector('input[type="checkbox"]');
         if (!cb) return;
         
-        // Основной обработчик для клика по области карточки (кроме самого чекбокса, чтобы избежать двойного события)
         item.addEventListener('click', (e) => {
-          // Если клик был именно на чекбоксе - не перехватываем, пусть сработает его родной change
           if (e.target === cb) return;
-          // Иначе переключаем чекбокс и вызываем событие change вручную
           if (!cb.disabled) {
             cb.checked = !cb.checked;
             const changeEvent = new Event('change', { bubbles: true });
@@ -858,7 +921,6 @@
           }
         });
         
-        // Обработчик изменения чекбокса (логика выделения, ограничения 5)
         cb.addEventListener('change', (e) => {
           e.stopPropagation();
           const modelId = cb.dataset.model;
@@ -877,7 +939,6 @@
           
           els.selectedCount.textContent = selectedModels.length;
           updateGenerateButton();
-          // обновляем класс выделения у родительского элемента
           if (isChecked) item.classList.add('selected');
           else item.classList.remove('selected');
         });
@@ -899,11 +960,22 @@
         translateTimeout = setTimeout(async () => {
           try {
             const encoded = encodeURIComponent(text);
-            const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=ru&tl=en&dt=t&q=${encoded}`);
+            const translateUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ru&tl=en&dt=t&q=${encoded}`;
+            
+            if (!isValidApiUrl(translateUrl)) {
+              throw new Error('Invalid translation URL');
+            }
+            
+            const res = await fetch(translateUrl);
             const data = await res.json();
-            const translated = data[0][0][0];
-            els.translatedText.textContent = translated;
-            els.translation.classList.remove('empty');
+            // Валидация структуры ответа
+            if (data && Array.isArray(data) && data[0] && Array.isArray(data[0]) && data[0][0] && data[0][0][0]) {
+              const translated = data[0][0][0];
+              els.translatedText.textContent = escapeHtml(translated);
+              els.translation.classList.remove('empty');
+            } else {
+              throw new Error('Invalid translation response');
+            }
           } catch (e) {
             console.warn('Translation error:', e);
             els.translatedText.textContent = 'Переведите вручную на английский';
@@ -944,22 +1016,46 @@
         }
       });
       els.removeImg.addEventListener('click', () => {
-        attachedImage = null;
-        els.imagePreview.classList.add('hidden');
-        els.fileInput.value = '';
-        renderModels();
-        updateGenerateButton();
+        if (attachedImage) {
+          attachedImage = null;
+          els.imagePreview.classList.add('hidden');
+          els.fileInput.value = '';
+          // Очищаем preview URL
+          if (els.previewImg.src && els.previewImg.src.startsWith('blob:')) {
+            revokeBlobUrl(els.previewImg.src);
+          }
+          els.previewImg.src = '';
+          renderModels();
+          updateGenerateButton();
+        }
       });
     }
 
     async function handleImageFile(file) {
       if (!file.type.startsWith('image/')) { showToast('Выберите изображение', 'error'); return; }
       if (file.size > 10 * 1024 * 1024) { showToast('Файл слишком большой (макс. 10 МБ)', 'error'); return; }
+      
+      // Валидация MIME типа
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      if (!allowedTypes.includes(file.type)) {
+        showToast('Неподдерживаемый формат изображения', 'error');
+        return;
+      }
+      
       attachedImage = file;
-      els.fileName.textContent = file.name;
+      els.fileName.textContent = escapeHtml(file.name);
       els.fileSize.textContent = formatFileSize(file.size);
+      
+      // Очищаем старый preview URL
+      if (els.previewImg.src && els.previewImg.src.startsWith('blob:')) {
+        revokeBlobUrl(els.previewImg.src);
+      }
+      
       const reader = new FileReader();
-      reader.onload = (e) => { els.previewImg.src = e.target.result; els.imagePreview.classList.remove('hidden'); };
+      reader.onload = (e) => { 
+        els.previewImg.src = e.target.result; 
+        els.imagePreview.classList.remove('hidden');
+      };
       reader.readAsDataURL(file);
       renderModels();
       updateGenerateButton();
@@ -987,8 +1083,11 @@
     async function generateImage({ model, prompt, image, seed, enhance, modelInfo }) {
       try {
         let url, options;
+        
         if (image && modelInfo.supportsImage) {
           url = `${API_BASE}/v1/images/edits`;
+          if (!isValidApiUrl(url)) throw new Error('Invalid API URL');
+          
           const formData = new FormData();
           formData.append('prompt', prompt);
           formData.append('model', model);
@@ -997,33 +1096,65 @@
           if (enhance) formData.append('enhance', 'true');
           options = { method: 'POST', headers: { 'Authorization': `Bearer ${apiKey}` }, body: formData };
         } else {
-          const params = new URLSearchParams({ model, seed: seed.toString(), width: '1024', height: '1024' });
+          const params = new URLSearchParams({ 
+            model, 
+            seed: seed.toString(), 
+            width: '1024', 
+            height: '1024' 
+          });
           if (enhance) params.append('enhance', 'true');
           const encodedPrompt = encodeURIComponent(prompt);
           url = `${API_BASE}/image/${encodedPrompt}?${params.toString()}`;
+          if (!isValidApiUrl(url)) throw new Error('Invalid API URL');
           options = { method: 'GET', headers: { 'Authorization': `Bearer ${apiKey}` } };
         }
+        
         const res = await fetch(url, options);
-        if (!res.ok) { const err = await res.json().catch(()=>({})); throw new Error(err.error?.message || `HTTP ${res.status}`); }
+        if (!res.ok) { 
+          let errorMessage = `HTTP ${res.status}`;
+          try {
+            const err = await res.json();
+            if (err.error?.message) errorMessage = err.error.message;
+          } catch(e) {}
+          throw new Error(errorMessage);
+        }
+        
         const contentType = res.headers.get('content-type');
         let imgUrl;
+        
         if (contentType && contentType.includes('application/json')) {
           const data = await res.json();
+          // Валидация структуры ответа
           if (data.data && data.data[0] && data.data[0].b64_json) {
             const base64Data = data.data[0].b64_json;
+            // Проверяем, что base64 строка имеет корректный формат
+            if (typeof base64Data !== 'string' || base64Data.length === 0) {
+              throw new Error('Invalid base64 data');
+            }
             const blob = base64ToBlob(base64Data, 'image/png');
             imgUrl = URL.createObjectURL(blob);
+            blobUrls.push(imgUrl); // Отслеживаем для последующей очистки
           } else throw new Error('Invalid response format');
         } else {
           const blob = await res.blob();
           imgUrl = URL.createObjectURL(blob);
+          blobUrls.push(imgUrl); // Отслеживаем для последующей очистки
         }
         return { url: imgUrl, model: modelInfo.name, isPaid: modelInfo.paid_only };
-      } catch (e) { console.warn(`Generation failed for ${model}:`, e); return null; }
+      } catch (e) { 
+        console.warn(`Generation failed for ${model}:`, e); 
+        showToast(`Ошибка генерации для модели ${modelInfo.name}: ${e.message}`, 'error');
+        return null; 
+      }
     }
 
     function base64ToBlob(base64, contentType) {
+      // Валидация base64 строки
       const base64Clean = base64.replace(/^data:image\/\w+;base64,/, '');
+      if (!base64Clean || base64Clean.length === 0) {
+        throw new Error('Invalid base64 data');
+      }
+      
       const byteCharacters = atob(base64Clean);
       const byteNumbers = new Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
@@ -1034,16 +1165,26 @@
     function addResultCard({ url, model, isPaid }) {
       const card = document.createElement('div');
       card.className = 'result-card';
+      const escapedModel = escapeHtml(model);
+      
       card.innerHTML = `
         <img src="${url}" alt="Generated" loading="lazy" />
         <div class="result-info">
-          <div class="result-model">${model} ${isPaid ? '<span class="star">★</span>' : ''}</div>
+          <div class="result-model">${escapedModel} ${isPaid ? '<span class="star">★</span>' : ''}</div>
           <div class="result-actions"><button class="btn btn-secondary btn-sm" data-action="save">💾 Сохранить</button></div>
         </div>`;
-      card.querySelector('[data-action="save"]').addEventListener('click', () => {
-        const a = document.createElement('a'); a.href = url; a.download = `pollinations-${model.replace(/\s+/g, '-')}-${Date.now()}.png`; a.click();
-        showToast('Изображение сохранено', 'success');
-      });
+      
+      const saveBtn = card.querySelector('[data-action="save"]');
+      if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+          const a = document.createElement('a'); 
+          a.href = url; 
+          a.download = `pollinations-${escapedModel.replace(/\s+/g, '-')}-${Date.now()}.png`; 
+          a.click();
+          showToast('Изображение сохранено', 'success');
+        });
+      }
+      
       els.resultsGrid.appendChild(card);
     }
 
@@ -1052,54 +1193,141 @@
       const key = els.apiKeyInput.value.trim();
       if (!key) { showToast('Введите API ключ', 'error'); return; }
       if (!key.startsWith('sk_') && !key.startsWith('pk_')) { showToast('Неверный формат ключа', 'error'); return; }
-      apiKey = key; localStorage.setItem(STORAGE_KEY, key); updateAuthUI(true); loadUserProfile(); showToast('Ключ сохранён ✓', 'success');
+      
+      // Дополнительная валидация ключа
+      if (key.length < 10) {
+        showToast('Ключ слишком короткий', 'error');
+        return;
+      }
+      
+      apiKey = key; 
+      sessionStorage.setItem(STORAGE_KEY, key); // Используем sessionStorage
+      updateAuthUI(true); 
+      loadUserProfile(); 
+      showToast('Ключ сохранён ✓', 'success');
     });
+    
     els.loadKeyBtn.addEventListener('click', () => {
-      const key = localStorage.getItem(STORAGE_KEY);
-      if (key) { els.apiKeyInput.value = key; apiKey = key; updateAuthUI(true); loadUserProfile(); showToast('Ключ загружен ✓', 'success'); }
-      else showToast('Сохранённый ключ не найден', 'error');
+      const key = sessionStorage.getItem(STORAGE_KEY);
+      if (key) { 
+        els.apiKeyInput.value = key; 
+        apiKey = key; 
+        updateAuthUI(true); 
+        loadUserProfile(); 
+        showToast('Ключ загружен ✓', 'success');
+      } else showToast('Сохранённый ключ не найден', 'error');
     });
-    els.logoutBtn.addEventListener('click', () => { localStorage.removeItem(STORAGE_KEY); apiKey = ''; els.apiKeyInput.value = ''; updateAuthUI(false); showToast('Вы вышли из аккаунта', 'success'); });
-    els.refreshModels.addEventListener('click', () => { loadModels(); showToast('Список моделей обновлён', 'success'); });
+    
+    els.logoutBtn.addEventListener('click', () => { 
+      sessionStorage.removeItem(STORAGE_KEY); 
+      apiKey = ''; 
+      els.apiKeyInput.value = ''; 
+      updateAuthUI(false); 
+      // Очищаем все Blob URL при выходе
+      revokeAllBlobUrls();
+      showToast('Вы вышли из аккаунта', 'success'); 
+    });
+    
+    els.refreshModels.addEventListener('click', () => { 
+      loadModels(); 
+      showToast('Список моделей обновлён', 'success'); 
+    });
+    
     els.prompt.addEventListener('input', updateGenerateButton);
+    
     els.generateBtn.addEventListener('click', async () => {
       if (isGenerating) return;
+      
       const prompt = els.prompt.value.trim();
       const translatedPrompt = els.translatedText.textContent || prompt;
       const count = parseInt(els.imageCount.value);
       const enhance = els.enhancePrompt.checked;
+      
+      // Валидация входных данных
       if (!prompt) { showToast('Введите промпт', 'error'); return; }
+      if (prompt.length > 1000) { showToast('Промпт слишком длинный (макс. 1000 символов)', 'error'); return; }
       if (selectedModels.length === 0) { showToast('Выберите хотя бы одну модель', 'error'); return; }
       if (!apiKey) { showToast('Требуется аутентификация', 'error'); return; }
+      if (count < 1 || count > 10) { showToast('Некорректное количество изображений', 'error'); return; }
+      
       const usableModels = attachedImage ? selectedModels.filter(id => models.find(m => m.id === id)?.supportsImage) : selectedModels;
       if (usableModels.length === 0) { showToast('Нет моделей, поддерживающих загрузку изображений', 'error'); return; }
-      isGenerating = true; els.loading.classList.add('active'); els.generateBtn.disabled = true; els.resultsGrid.innerHTML = ''; els.resultsSection.classList.remove('hidden');
+      
+      isGenerating = true; 
+      els.loading.classList.add('active'); 
+      els.generateBtn.disabled = true; 
+      
+      // Очищаем предыдущие результаты и Blob URL
+      els.resultsGrid.innerHTML = '';
+      revokeAllBlobUrls();
+      
+      els.resultsSection.classList.remove('hidden');
+      
       const tasks = [];
-      const seed = -1;
+      const baseSeed = Math.floor(Math.random() * 1000000);
+      
       for (const modelId of usableModels) {
         const model = models.find(m => m.id === modelId);
         if (!model) continue;
-        for (let i = 0; i < count; i++) tasks.push(generateImage({ model: modelId, prompt: translatedPrompt, image: attachedImage, seed: seed + Math.floor(Math.random() * 10000), enhance, modelInfo: model }));
+        for (let i = 0; i < count; i++) {
+          tasks.push(generateImage({ 
+            model: modelId, 
+            prompt: translatedPrompt, 
+            image: attachedImage, 
+            seed: baseSeed + i + Math.floor(Math.random() * 10000), 
+            enhance, 
+            modelInfo: model 
+          }));
+        }
       }
+      
       const results = await Promise.allSettled(tasks);
       results.forEach(result => { if (result.status === 'fulfilled' && result.value) addResultCard(result.value); });
+      
       const successCount = results.filter(r => r.status === 'fulfilled' && r.value).length;
       const failCount = results.length - successCount;
-      els.loading.classList.remove('active'); isGenerating = false; els.generateBtn.disabled = false;
+      
+      els.loading.classList.remove('active'); 
+      isGenerating = false; 
+      els.generateBtn.disabled = false;
+      
       showToast(successCount ? `Готово: ${successCount} изображений${failCount ? `, ${failCount} ошибок` : ''}` : 'Не удалось сгенерировать изображения', successCount ? 'success' : 'error');
     });
 
     function showToast(message, type = 'info') {
-      const toast = document.createElement('div'); toast.className = `toast ${type}`; toast.textContent = message; els.toastContainer.appendChild(toast);
-      setTimeout(() => { toast.style.animation = 'slideIn 0.3s ease reverse'; setTimeout(() => toast.remove(), 300); }, 3000);
+      const toast = document.createElement('div'); 
+      toast.className = `toast ${type}`; 
+      toast.textContent = message; 
+      els.toastContainer.appendChild(toast);
+      setTimeout(() => { 
+        toast.style.animation = 'slideIn 0.3s ease reverse'; 
+        setTimeout(() => toast.remove(), 300); 
+      }, 3000);
     }
 
-    function setupEventListeners() { els.prompt.addEventListener('input', () => { if (!els.prompt.value.trim()) els.translation.classList.add('empty'); updateGenerateButton(); }); }
+    function setupEventListeners() { 
+      els.prompt.addEventListener('input', () => { 
+        if (!els.prompt.value.trim()) els.translation.classList.add('empty'); 
+        updateGenerateButton(); 
+      }); 
+    }
+
+    // Очистка ресурсов при закрытии страницы
+    window.addEventListener('beforeunload', () => {
+      revokeAllBlobUrls();
+    });
 
     // INIT
     document.addEventListener('DOMContentLoaded', () => {
-      if (apiKey) { els.apiKeyInput.value = apiKey; updateAuthUI(true); loadUserProfile(); }
-      loadModels(); setupEventListeners(); setupTranslation(); setupImageUpload();
+      if (apiKey) { 
+        els.apiKeyInput.value = apiKey; 
+        updateAuthUI(true); 
+        loadUserProfile(); 
+      }
+      loadModels(); 
+      setupEventListeners(); 
+      setupTranslation(); 
+      setupImageUpload();
       els.loading.classList.remove('active');
     });
   </script>
